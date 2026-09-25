@@ -30,3 +30,22 @@ CREATE TABLE IF NOT EXISTS market_calendar (
     holiday_name VARCHAR(255),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS scheduled_jobs (
+    id SERIAL PRIMARY KEY,
+    job_name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS job_runs (
+    id SERIAL PRIMARY KEY,
+    job_id INTEGER NOT NULL REFERENCES scheduled_jobs(id),
+    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    finished_at TIMESTAMPTZ,
+    status VARCHAR(20) NOT NULL,
+    message TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
