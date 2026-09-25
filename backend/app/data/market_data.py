@@ -1,6 +1,7 @@
 import yfinance as yf
 
 from backend.app.database import get_connection
+from backend.app.data.market_calendar import is_trading_day
 
 
 def get_daily_prices(symbol: str, period: str = "5d"):
@@ -133,6 +134,14 @@ def save_prices_from_yahoo(symbol: str, period: str = "5d"):
 
 
 def update_all_stocks(period: str = "5d"):
+    from datetime import date
+
+    today = date.today()
+
+    if not is_trading_day(today):
+        print(f"{today} bukan hari Bursa. Update dilewati.")
+        return
+
     conn = get_connection()
 
     try:
