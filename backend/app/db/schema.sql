@@ -22,3 +22,11 @@ CREATE TABLE IF NOT EXISTS stock_prices (
 
     UNIQUE (stock_id, trade_date)
 );
+
+CREATE TABLE IF NOT EXISTS market_calendar (
+    id SERIAL PRIMARY KEY,
+    calendar_date DATE NOT NULL UNIQUE,
+    is_trading_day BOOLEAN NOT NULL,
+    holiday_name VARCHAR(255),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
