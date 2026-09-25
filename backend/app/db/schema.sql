@@ -8,3 +8,17 @@ CREATE TABLE IF NOT EXISTS stocks (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+CREATE TABLE IF NOT EXISTS stock_prices (
+    id SERIAL PRIMARY KEY,
+    stock_id INTEGER NOT NULL REFERENCES stocks(id),
+    trade_date DATE NOT NULL,
+    open NUMERIC(15, 2),
+    high NUMERIC(15, 2),
+    low NUMERIC(15, 2),
+    close NUMERIC(15, 2),
+    adjusted_close NUMERIC(15, 2),
+    volume BIGINT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    UNIQUE (stock_id, trade_date)
+);
