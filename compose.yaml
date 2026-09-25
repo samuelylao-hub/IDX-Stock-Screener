@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: idx-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: idx_screener
+      POSTGRES_USER: idx_user
+      POSTGRES_PASSWORD: idx_password_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
