@@ -44,6 +44,7 @@ class NewsEvent:
     canonical_title: str
     first_published_at: datetime
     first_detected_at: datetime
+    event_key: str | None = None
     importance: str | None = None
     validation_status: str | None = None
     source_count: int = 0
@@ -56,6 +57,23 @@ def normalize_news_title(title: str) -> str:
     normalized = re.sub(r"[^\w\s]", " ", normalized)
     normalized = re.sub(r"\s+", " ", normalized)
     return normalized.strip()
+
+
+def build_event_key(
+    symbol: str | None,
+    canonical_title: str,
+) -> str:
+    normalized_title = normalize_news_title(
+        canonical_title
+    )
+
+    normalized_symbol = (
+        symbol.casefold().strip()
+        if symbol
+        else "UNKNOWN"
+    )
+
+    return f"{normalized_symbol}|{normalized_title}"
 
 
 def classify_news_source(source_name: str) -> NewsSource:
@@ -164,11 +182,17 @@ def create_news_event(news_item: NewsItem) -> NewsEvent:
     source.published_at = news_item.published_at
     source.detected_at = news_item.detected_at
 
+    event_key = build_event_key(
+        news_item.symbol,
+        news_item.title,
+    )
+
     return NewsEvent(
         symbol=news_item.symbol,
         canonical_title=news_item.title,
         first_published_at=news_item.published_at,
         first_detected_at=news_item.detected_at,
+        event_key=event_key,
         importance=news_item.importance,
         validation_status=news_item.validation_status,
         source_count=1,

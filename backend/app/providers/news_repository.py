@@ -10,8 +10,15 @@ def save_news_event(connection, event: NewsEvent):
             "sebelum disimpan."
         )
 
+    if event.event_key is None:
+        raise ValueError(
+            "NewsEvent harus memiliki event_key "
+            "sebelum disimpan."
+        )
+
     query = """
         INSERT INTO news_events (
+            event_key,
             symbol,
             canonical_title,
             first_published_at,
@@ -37,8 +44,19 @@ def save_news_event(connection, event: NewsEvent):
             %s,
             %s,
             %s,
+            %s,
             %s
         )
+        ON CONFLICT (event_key)
+        DO UPDATE SET
+            validation_status = EXCLUDED.validation_status,
+            source_count = EXCLUDED.source_count,
+            official_source_count = EXCLUDED.official_source_count,
+            primary_source_count = EXCLUDED.primary_source_count,
+            independent_source_count = EXCLUDED.independent_source_count,
+            contradicting_source_count = EXCLUDED.contradicting_source_count,
+            evidence_strength = EXCLUDED.evidence_strength,
+            updated_at = NOW()
         RETURNING id
     """
 
@@ -46,6 +64,7 @@ def save_news_event(connection, event: NewsEvent):
         cursor.execute(
             query,
             (
+                event.event_key,
                 event.symbol,
                 event.canonical_title,
                 event.first_published_at,

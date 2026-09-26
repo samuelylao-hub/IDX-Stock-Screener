@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS foreign_daily_flow (
 
 CREATE TABLE IF NOT EXISTS news_events (
     id SERIAL PRIMARY KEY,
+    event_key VARCHAR(255) UNIQUE,
     symbol VARCHAR(10),
     canonical_title TEXT NOT NULL,
 
