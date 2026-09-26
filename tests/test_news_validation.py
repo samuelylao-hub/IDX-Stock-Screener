@@ -17,6 +17,7 @@ def make_source(
     country,
     is_primary=False,
     derived_from=None,
+    is_contradicting=False,
 ):
     source = NewsSource(
         name=name,
@@ -24,6 +25,7 @@ def make_source(
         source_tier=3,
         country=country,
         is_primary=is_primary,
+        is_contradicting=is_contradicting,
     )
 
     relationship = create_source_relationship(
@@ -65,6 +67,8 @@ def run_test(name, sources):
         result.independent_source_count,
         "| official=",
         result.official_source_count,
+        "| contradicting=",
+        result.contradicting_source_count,
         "|",
         result.reason,
     )
@@ -129,6 +133,41 @@ if __name__ == "__main__":
                 "Reuters",
                 "GLOBAL_MEDIA",
                 "GLOBAL",
+            ),
+        ],
+    )
+
+    run_test(
+        "REUTERS_PLUS_CONTRADICTING_OFFICIAL",
+        [
+            make_source(
+                "Reuters",
+                "GLOBAL_MEDIA",
+                "GLOBAL",
+            ),
+            make_source(
+                "Company IR",
+                "COMPANY",
+                "ID",
+                is_primary=True,
+                is_contradicting=True,
+            ),
+        ],
+    )
+
+    run_test(
+        "REUTERS_PLUS_INDEPENDENT_CONTRADICTING",
+        [
+            make_source(
+                "Reuters",
+                "GLOBAL_MEDIA",
+                "GLOBAL",
+            ),
+            make_source(
+                "Bloomberg",
+                "GLOBAL_MEDIA",
+                "GLOBAL",
+                is_contradicting=True,
             ),
         ],
     )

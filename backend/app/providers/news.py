@@ -15,6 +15,7 @@ class NewsSource:
     published_at: datetime | None = None
     detected_at: datetime | None = None
     is_primary: bool = False
+    is_contradicting: bool = False
 
     source_role: str | None = None
     derived_from: str | None = None

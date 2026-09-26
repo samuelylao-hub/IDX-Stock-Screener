@@ -56,6 +56,7 @@ def validate_news_event(
     official_source_count = 0
     primary_source_count = 0
     independent_source_names = set()
+    contradicting_source_names = set()
 
     for source in sources:
         relationship = _get_source_relationship(source)
@@ -74,15 +75,33 @@ def validate_news_event(
                 source.name.casefold().strip()
             )
 
-    independent_source_count = len(independent_source_names)
+        if source.is_contradicting:
+            contradicting_source_names.add(
+                source.name.casefold().strip()
+            )
 
-    contradicting_source_count = 0
+    independent_source_count = len(independent_source_names)
+    contradicting_source_count = len(contradicting_source_names)
 
     if official_source_count > 0:
         return ValidationResult(
             status=VALIDATION_OFFICIALLY_CONFIRMED,
             reason=(
                 "Terdapat sumber regulator atau perusahaan resmi."
+            ),
+            official_source_count=official_source_count,
+            primary_source_count=primary_source_count,
+            independent_source_count=independent_source_count,
+            contradicting_source_count=contradicting_source_count,
+        )
+
+    if contradicting_source_count > 0:
+        return ValidationResult(
+            status=VALIDATION_CONTRADICTED,
+            reason=(
+                "Terdapat sumber yang secara eksplisit "
+                "membantah event dan belum ada sumber resmi "
+                "yang menyelesaikan konflik."
             ),
             official_source_count=official_source_count,
             primary_source_count=primary_source_count,
