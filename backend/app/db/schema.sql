@@ -49,3 +49,17 @@ CREATE TABLE IF NOT EXISTS job_runs (
     message TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS foreign_daily_flow (
+    id SERIAL PRIMARY KEY,
+    stock_id INTEGER NOT NULL REFERENCES stocks(id),
+    trade_date DATE NOT NULL,
+
+    foreign_buy_value NUMERIC(20, 2),
+    foreign_sell_value NUMERIC(20, 2),
+    foreign_net_value NUMERIC(20, 2),
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    UNIQUE (stock_id, trade_date)
+);
