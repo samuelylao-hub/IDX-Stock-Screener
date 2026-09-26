@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Protocol
 
+from backend.app.providers.news_evidence import EvidenceSummary
+
 
 @dataclass
 class NewsSource:
@@ -46,6 +48,7 @@ class NewsEvent:
     validation_status: str | None = None
     source_count: int = 0
     sources: list[NewsSource] | None = None
+    evidence_summary: EvidenceSummary | None = None
 
 
 def normalize_news_title(title: str) -> str:
@@ -170,6 +173,7 @@ def create_news_event(news_item: NewsItem) -> NewsEvent:
         validation_status=news_item.validation_status,
         source_count=1,
         sources=[source],
+        evidence_summary=None,
     )
 
 
