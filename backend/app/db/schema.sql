@@ -87,3 +87,33 @@ CREATE TABLE IF NOT EXISTS news_events (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS news_event_sources (
+    id SERIAL PRIMARY KEY,
+
+    news_event_id INTEGER NOT NULL
+        REFERENCES news_events(id)
+        ON DELETE CASCADE,
+
+    source_name VARCHAR(255) NOT NULL,
+    source_type VARCHAR(50) NOT NULL,
+    source_tier INTEGER NOT NULL,
+
+    country VARCHAR(50),
+
+    url TEXT,
+
+    published_at TIMESTAMPTZ,
+    detected_at TIMESTAMPTZ,
+
+    is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+    is_contradicting BOOLEAN NOT NULL DEFAULT FALSE,
+
+    source_role VARCHAR(30),
+    derived_from VARCHAR(255),
+    relationship_note TEXT,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    UNIQUE (news_event_id, source_name, url)
+);
