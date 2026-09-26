@@ -16,6 +16,10 @@ class NewsSource:
     detected_at: datetime | None = None
     is_primary: bool = False
 
+    source_role: str | None = None
+    derived_from: str | None = None
+    relationship_note: str | None = None
+
 
 @dataclass
 class NewsItem:
