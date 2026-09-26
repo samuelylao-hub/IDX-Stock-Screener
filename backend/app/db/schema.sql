@@ -63,3 +63,26 @@ CREATE TABLE IF NOT EXISTS foreign_daily_flow (
 
     UNIQUE (stock_id, trade_date)
 );
+
+CREATE TABLE IF NOT EXISTS news_events (
+    id SERIAL PRIMARY KEY,
+    symbol VARCHAR(10),
+    canonical_title TEXT NOT NULL,
+
+    first_published_at TIMESTAMPTZ NOT NULL,
+    first_detected_at TIMESTAMPTZ NOT NULL,
+
+    importance VARCHAR(20),
+    validation_status VARCHAR(40),
+
+    source_count INTEGER NOT NULL DEFAULT 0,
+    official_source_count INTEGER NOT NULL DEFAULT 0,
+    primary_source_count INTEGER NOT NULL DEFAULT 0,
+    independent_source_count INTEGER NOT NULL DEFAULT 0,
+    contradicting_source_count INTEGER NOT NULL DEFAULT 0,
+
+    evidence_strength VARCHAR(20),
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
