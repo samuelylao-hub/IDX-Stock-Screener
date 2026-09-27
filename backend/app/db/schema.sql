@@ -117,3 +117,37 @@ CREATE TABLE IF NOT EXISTS news_event_sources (
 
     UNIQUE (news_event_id, source_name, url)
 );
+
+CREATE TABLE IF NOT EXISTS broker_stock_flow (
+    id SERIAL PRIMARY KEY,
+    stock_id INTEGER NOT NULL REFERENCES stocks(id),
+    trade_date DATE NOT NULL,
+    broker_code VARCHAR(10) NOT NULL,
+    investor_type VARCHAR(10) NOT NULL,
+    market_segment VARCHAR(10) NOT NULL,
+    buy_freq INTEGER NOT NULL DEFAULT 0,
+    buy_volume BIGINT NOT NULL DEFAULT 0,
+    buy_value NUMERIC(20, 2) NOT NULL DEFAULT 0,
+    sell_freq INTEGER NOT NULL DEFAULT 0,
+    sell_volume BIGINT NOT NULL DEFAULT 0,
+    sell_value NUMERIC(20, 2) NOT NULL DEFAULT 0,
+    buy_avg NUMERIC(15, 4),
+    sell_avg NUMERIC(15, 4),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT broker_stock_flow_investor_type_check
+        CHECK (investor_type IN ('all', 'f', 'd')),
+
+    CONSTRAINT broker_stock_flow_market_segment_check
+        CHECK (market_segment IN ('RG', 'NG', 'ALL')),
+
+    CONSTRAINT broker_stock_flow_unique
+        UNIQUE (
+            stock_id,
+            trade_date,
+            broker_code,
+            investor_type,
+            market_segment
+        )
+);
