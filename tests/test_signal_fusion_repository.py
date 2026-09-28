@@ -1,56 +1,42 @@
 from datetime import date
 from decimal import Decimal
 
-from backend.app.data.signal_fusion_repository import (
-    SignalFusionRepository,
-)
+from backend.app.data.signal_fusion_repository import SignalFusionRepository
 
 
-def test_bbca_signal_fusion_input_from_database():
+def test_bbca_historical_prices_returns_five_days():
     repository = SignalFusionRepository()
 
-    result = repository.get_signal_input(
+    result = repository.get_historical_prices(
         symbol="BBCA",
         trade_date=date(2026, 9, 25),
-        price_lookback=5,
+        lookback=5,
     )
 
-    assert result.symbol == "BBCA"
-    assert result.trade_date == date(2026, 9, 25)
+    assert len(result) == 5
 
-    assert result.net_foreign == Decimal("99028035225.00")
-    assert result.broker_net == Decimal("-238477692500.00")
+    assert result[0].trade_date == date(2026, 9, 21)
+    assert result[-1].trade_date == date(2026, 9, 25)
 
-    assert result.first_close == Decimal("6225.00")
-    assert result.last_close == Decimal("6250.00")
+    assert result[0].close == Decimal("6225.00")
+    assert result[-1].close == Decimal("6250.00")
 
 
-def test_bbri_signal_fusion_input_without_smart_money_data():
+def test_historical_prices_does_not_use_future_data():
     repository = SignalFusionRepository()
 
-    result = repository.get_signal_input(
-        symbol="BBRI",
-        trade_date=date(2026, 9, 25),
-        price_lookback=5,
-    )
-
-    assert result.symbol == "BBRI"
-    assert result.trade_date == date(2026, 9, 25)
-
-    assert result.net_foreign is None
-    assert result.broker_net is None
-
-    assert result.first_close is not None
-    assert result.last_close is not None
-
-
-def test_broker_zero_net_is_real_data():
-    repository = SignalFusionRepository()
-
-    result = repository.get_signal_input(
+    result = repository.get_historical_prices(
         symbol="BBCA",
-        trade_date=date(2026, 9, 25),
-        price_lookback=5,
+        trade_date=date(2026, 9, 23),
+        lookback=5,
     )
 
-    assert result.broker_net is not None
+    assert len(result) == 3
+
+    assert result[0].trade_date == date(2026, 9, 21)
+    assert result[-1].trade_date == date(2026, 9, 23)
+
+    assert all(
+        point.trade_date <= date(2026, 9, 23)
+        for point in result
+    )
