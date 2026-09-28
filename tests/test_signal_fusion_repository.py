@@ -38,7 +38,19 @@ def test_bbri_signal_fusion_input_without_smart_money_data():
     assert result.trade_date == date(2026, 9, 25)
 
     assert result.net_foreign is None
-    assert result.broker_net == Decimal("0")
+    assert result.broker_net is None
 
     assert result.first_close is not None
     assert result.last_close is not None
+
+
+def test_broker_zero_net_is_real_data():
+    repository = SignalFusionRepository()
+
+    result = repository.get_signal_input(
+        symbol="BBCA",
+        trade_date=date(2026, 9, 25),
+        price_lookback=5,
+    )
+
+    assert result.broker_net is not None

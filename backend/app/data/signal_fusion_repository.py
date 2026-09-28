@@ -61,6 +61,7 @@ class SignalFusionRepository:
                 )
 
                 foreign_row = cursor.fetchone()
+
                 net_foreign = (
                     foreign_row[0]
                     if foreign_row is not None
@@ -70,10 +71,8 @@ class SignalFusionRepository:
                 cursor.execute(
                     """
                     SELECT
-                        COALESCE(
-                            SUM(buy_value - sell_value),
-                            0
-                        )
+                        SUM(buy_value - sell_value),
+                        COUNT(*)
                     FROM broker_stock_flow
                     WHERE stock_id = %s
                       AND trade_date = %s
@@ -89,11 +88,14 @@ class SignalFusionRepository:
                 )
 
                 broker_row = cursor.fetchone()
-                broker_net = (
-                    broker_row[0]
-                    if broker_row is not None
-                    else None
-                )
+
+                broker_net = None
+
+                if broker_row is not None:
+                    broker_sum, broker_count = broker_row
+
+                    if broker_count > 0:
+                        broker_net = broker_sum
 
                 cursor.execute(
                     """
