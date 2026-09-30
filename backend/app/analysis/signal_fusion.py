@@ -2,8 +2,8 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Optional
 
+from backend.app.analysis.evidence import Evidence
 from backend.app.data.signal_fusion_repository import FlowWindow
-
 
 @dataclass
 class SignalFusionResult:
@@ -28,10 +28,26 @@ class SignalFusionResult:
     alignment: str
     observation: str
 
+    # Base data availability:
+    # price + foreign + broker.
     data_completeness: float
 
-    foreign_windows: dict[int, FlowWindow] = field(default_factory=dict)
-    broker_windows: dict[int, FlowWindow] = field(default_factory=dict)
+    # Historical coverage for requested flow windows.
+    foreign_coverage: dict[int, float] = field(default_factory=dict)
+    broker_coverage: dict[int, float] = field(default_factory=dict)
+
+    # Overall quality classification.
+    data_quality_status: str = "LIMITED"
+
+    # Evidence/provenance for base signal components.
+    evidence: dict[str, Evidence] = field(default_factory=dict)
+
+    foreign_windows: dict[int, FlowWindow] = field(
+        default_factory=dict
+    )
+    broker_windows: dict[int, FlowWindow] = field(
+        default_factory=dict
+    )
 
 
 def determine_foreign_state(net_foreign: float) -> str:
@@ -67,7 +83,9 @@ def determine_price_volume_state(
     return "SIDEWAYS"
 
 
-def classify_flow_window(window: Optional[FlowWindow]) -> str:
+def classify_flow_window(
+    window: Optional[FlowWindow],
+) -> str:
     if window is None:
         return "INSUFFICIENT_DATA"
 
@@ -84,6 +102,88 @@ def classify_flow_window(window: Optional[FlowWindow]) -> str:
         return "DISTRIBUTION"
 
     return "NEUTRAL"
+
+
+def calculate_window_coverage(
+    window: Optional[FlowWindow],
+) -> float:
+    """
+    Calculate how much of a requested flow window is available.
+
+    Examples:
+        1 available day out of 1 requested day -> 1.0
+        1 available day out of 5 requested days -> 0.2
+        1 available day out of 20 requested days -> 0.05
+        missing window -> 0.0
+    """
+    if window is None:
+        return 0.0
+
+    if window.window_days <= 0:
+        return 0.0
+
+    if window.available_days <= 0:
+        return 0.0
+
+    coverage = (
+        window.available_days / window.window_days
+    )
+
+    return min(max(coverage, 0.0), 1.0)
+
+
+def calculate_flow_coverage(
+    windows: dict[int, FlowWindow],
+) -> dict[int, float]:
+    return {
+        window_days: calculate_window_coverage(
+            windows.get(window_days)
+        )
+        for window_days in (1, 5, 20)
+    }
+
+
+def determine_data_quality_status(
+    has_price_data: bool,
+    has_foreign_data: bool,
+    has_broker_data: bool,
+    foreign_coverage: dict[int, float],
+    broker_coverage: dict[int, float],
+) -> str:
+    """
+    Classify the quality of the data supporting the signal.
+
+    GOOD:
+        Base data exists and all requested flow windows are complete.
+
+    PARTIAL:
+        Base data exists but one or more historical windows are incomplete.
+
+    LIMITED:
+        One or more required base data components are missing.
+    """
+    if not (
+        has_price_data
+        and has_foreign_data
+        and has_broker_data
+    ):
+        return "LIMITED"
+
+    all_coverage = [
+        *foreign_coverage.values(),
+        *broker_coverage.values(),
+    ]
+
+    if not all_coverage:
+        return "PARTIAL"
+
+    if all(
+        coverage >= 1.0
+        for coverage in all_coverage
+    ):
+        return "GOOD"
+
+    return "PARTIAL"
 
 
 def determine_flow_persistence(
@@ -235,6 +335,14 @@ def calculate_data_completeness(
     has_foreign_data: bool,
     has_broker_data: bool,
 ) -> float:
+    """
+    Base data completeness.
+
+    This intentionally measures only the three base components:
+    price, foreign flow, and broker flow.
+
+    Historical window coverage is reported separately.
+    """
     available = sum(
         [
             has_price_data,
@@ -253,14 +361,19 @@ def build_signal_fusion_result(
     broker_net: Optional[float],
     first_close: Optional[float],
     last_close: Optional[float],
-    foreign_windows: Optional[dict[int, FlowWindow]] = None,
-    broker_windows: Optional[dict[int, FlowWindow]] = None,
+    foreign_windows: Optional[
+        dict[int, FlowWindow]
+    ] = None,
+    broker_windows: Optional[
+        dict[int, FlowWindow]
+    ] = None,
 ) -> SignalFusionResult:
     foreign_windows = foreign_windows or {}
     broker_windows = broker_windows or {}
 
     has_foreign_data = net_foreign is not None
     has_broker_data = broker_net is not None
+
     has_price_data = (
         first_close is not None
         and last_close is not None
@@ -315,6 +428,14 @@ def build_signal_fusion_result(
         broker_windows
     )
 
+    foreign_coverage = calculate_flow_coverage(
+        foreign_windows
+    )
+
+    broker_coverage = calculate_flow_coverage(
+        broker_windows
+    )
+
     if has_foreign_data and has_broker_data:
         alignment = determine_alignment(
             foreign_state,
@@ -341,6 +462,37 @@ def build_signal_fusion_result(
         has_foreign_data,
         has_broker_data,
     )
+    data_quality_status = determine_data_quality_status(
+        has_price_data,
+        has_foreign_data,
+        has_broker_data,
+        foreign_coverage,
+        broker_coverage,
+    )
+
+    evidence = {
+        "price": Evidence(
+            component="price",
+            source="stock_prices",
+            as_of=trade_date,
+            available=has_price_data,
+            status=("COMPLETE" if has_price_data else "MISSING"),
+        ),
+        "foreign": Evidence(
+            component="foreign",
+            source="foreign_daily_flow",
+            as_of=trade_date,
+            available=has_foreign_data,
+            status=("COMPLETE" if has_foreign_data else "MISSING"),
+        ),
+        "broker": Evidence(
+            component="broker",
+            source="broker_stock_flow",
+            as_of=trade_date,
+            available=has_broker_data,
+            status=("COMPLETE" if has_broker_data else "MISSING"),
+        ),
+    }
 
     return SignalFusionResult(
         symbol=symbol,
@@ -359,6 +511,10 @@ def build_signal_fusion_result(
         alignment=alignment,
         observation=observation,
         data_completeness=data_completeness,
+        foreign_coverage=foreign_coverage,
+        broker_coverage=broker_coverage,
+        data_quality_status=data_quality_status,
+        evidence=evidence,
         foreign_windows=foreign_windows,
         broker_windows=broker_windows,
     )
