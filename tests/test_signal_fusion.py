@@ -1,13 +1,35 @@
 ﻿from datetime import date
+from decimal import Decimal
 
 from backend.app.analysis.signal_fusion import (
     build_signal_fusion_result,
     calculate_data_completeness,
+    classify_flow_window,
     determine_alignment,
     determine_broker_state,
+    determine_flow_persistence,
     determine_foreign_state,
     determine_price_volume_state,
 )
+from backend.app.data.signal_fusion_repository import FlowWindow
+
+
+def make_flow_window(
+    window_days: int,
+    available_days: int,
+    net_value: Decimal,
+    status: str,
+) -> FlowWindow:
+    return FlowWindow(
+        window_days=window_days,
+        available_days=available_days,
+        net_value=net_value,
+        positive_days=1 if net_value > 0 else 0,
+        negative_days=1 if net_value < 0 else 0,
+        zero_days=1 if net_value == 0 else 0,
+        consistency_ratio=Decimal("1"),
+        status=status,
+    )
 
 
 def test_foreign_state():
@@ -42,6 +64,118 @@ def test_data_completeness():
     assert calculate_data_completeness(False, False, False) == 0.0
 
 
+def test_classify_available_one_day_window():
+    window = make_flow_window(
+        window_days=1,
+        available_days=1,
+        net_value=Decimal("100"),
+        status="AVAILABLE",
+    )
+
+    assert classify_flow_window(window) == "ACCUMULATION"
+
+
+def test_classify_available_negative_one_day_window():
+    window = make_flow_window(
+        window_days=1,
+        available_days=1,
+        net_value=Decimal("-100"),
+        status="AVAILABLE",
+    )
+
+    assert classify_flow_window(window) == "DISTRIBUTION"
+
+
+def test_classify_insufficient_five_day_window():
+    window = make_flow_window(
+        window_days=5,
+        available_days=1,
+        net_value=Decimal("100"),
+        status="INSUFFICIENT_DATA",
+    )
+
+    assert classify_flow_window(window) == "INSUFFICIENT_DATA"
+
+
+def test_classify_missing_window():
+    assert classify_flow_window(None) == "INSUFFICIENT_DATA"
+
+
+def test_single_day_persistence():
+    windows = {
+        1: make_flow_window(
+            window_days=1,
+            available_days=1,
+            net_value=Decimal("100"),
+            status="AVAILABLE",
+        ),
+        5: make_flow_window(
+            window_days=5,
+            available_days=1,
+            net_value=Decimal("100"),
+            status="INSUFFICIENT_DATA",
+        ),
+        20: make_flow_window(
+            window_days=20,
+            available_days=1,
+            net_value=Decimal("100"),
+            status="INSUFFICIENT_DATA",
+        ),
+    }
+
+    assert determine_flow_persistence(windows) == "SINGLE_DAY"
+
+
+def test_consistent_multi_day_persistence():
+    windows = {
+        1: make_flow_window(
+            window_days=1,
+            available_days=1,
+            net_value=Decimal("100"),
+            status="AVAILABLE",
+        ),
+        5: make_flow_window(
+            window_days=5,
+            available_days=5,
+            net_value=Decimal("500"),
+            status="AVAILABLE",
+        ),
+        20: make_flow_window(
+            window_days=20,
+            available_days=20,
+            net_value=Decimal("2000"),
+            status="AVAILABLE",
+        ),
+    }
+
+    assert determine_flow_persistence(windows) == "CONSISTENT"
+
+
+def test_mixed_multi_day_persistence():
+    windows = {
+        1: make_flow_window(
+            window_days=1,
+            available_days=1,
+            net_value=Decimal("100"),
+            status="AVAILABLE",
+        ),
+        5: make_flow_window(
+            window_days=5,
+            available_days=5,
+            net_value=Decimal("-500"),
+            status="AVAILABLE",
+        ),
+        20: make_flow_window(
+            window_days=20,
+            available_days=20,
+            net_value=Decimal("-2000"),
+            status="AVAILABLE",
+        ),
+    }
+
+    assert determine_flow_persistence(windows) == "MIXED"
+
+
 def test_bbca_like_divergent_signal():
     result = build_signal_fusion_result(
         symbol="BBCA",
@@ -57,6 +191,12 @@ def test_bbca_like_divergent_signal():
     assert result.foreign_state == "ACCUMULATION"
     assert result.broker_state == "DISTRIBUTION"
     assert result.price_volume_state == "UPTREND"
+    assert result.foreign_1d_state == "INSUFFICIENT_DATA"
+    assert result.foreign_5d_state == "INSUFFICIENT_DATA"
+    assert result.foreign_20d_state == "INSUFFICIENT_DATA"
+    assert result.broker_1d_state == "INSUFFICIENT_DATA"
+    assert result.broker_5d_state == "INSUFFICIENT_DATA"
+    assert result.broker_20d_state == "INSUFFICIENT_DATA"
     assert result.alignment == "DIVERGENT"
     assert result.data_completeness == 1.0
 

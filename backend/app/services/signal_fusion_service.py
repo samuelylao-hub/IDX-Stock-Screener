@@ -39,4 +39,6 @@ class SignalFusionService:
             broker_net=signal_input.broker_net,
             first_close=signal_input.first_close,
             last_close=signal_input.last_close,
+            foreign_windows=signal_input.foreign_windows,
+            broker_windows=signal_input.broker_windows,
         )
