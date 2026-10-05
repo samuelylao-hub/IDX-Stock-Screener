@@ -7,6 +7,7 @@ from backend.app.scheduler.job_logger import (
     start_job_run,
 )
 from backend.app.services.screener_service import ScreenerService
+from backend.app.services.screener_report import format_screener_report
 
 
 def run_market_data_update():
@@ -24,14 +25,7 @@ def run_market_data_update():
 
         results = ScreenerService().screen_market(date.today())
 
-        print("Screener results:")
-        for result in results:
-            print(
-                f"{result.symbol}: "
-                f"{result.signal} "
-                f"score={result.score} "
-                f"confidence={result.confidence}%"
-            )
+        print(format_screener_report(results, date.today()))
 
         finish_job_run(
             run_id,
@@ -51,11 +45,12 @@ def run_market_data_update():
         print(f"Market data update failed: {error}")
 
         raise
+
+
 from backend.app.data.market_calendar import is_trading_day
 
-def run_market_data_update_if_trading_day():
-    from datetime import date
 
+def run_market_data_update_if_trading_day():
     if not is_trading_day(date.today()):
         print("Non-trading day. Market update skipped.")
         return
