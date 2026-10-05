@@ -101,3 +101,88 @@ def test_service_uses_repository_lookback_configuration():
         "investor_type": "all",
         "market_segment": "RG",
     }
+
+
+def test_service_attaches_news_evidence():
+    class NewsRepositoryConnection:
+        def cursor(self):
+            return self
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            pass
+
+        def execute(self, *args, **kwargs):
+            return self
+
+        def fetchall(self):
+            return [
+                (
+                    1,
+                    "BBRI",
+                    "BBRI mendapat sentimen positif",
+                    None,
+                    None,
+                    None,
+                    "CORROBORATED",
+                    2,
+                    1,
+                    1,
+                    1,
+                    0,
+                    "MEDIUM_HIGH",
+                )
+            ]
+
+    class FakeConnection:
+        def __enter__(self):
+            return NewsRepositoryConnection()
+
+        def __exit__(self, exc_type, exc, tb):
+            pass
+
+    class FakeSignalFusionRepository:
+        def get_signal_input(
+            self,
+            symbol,
+            trade_date,
+            price_lookback=5,
+            investor_type="all",
+            market_segment="RG",
+        ):
+            return SignalFusionInput(
+                symbol=symbol,
+                trade_date=trade_date,
+                net_foreign=None,
+                broker_net=None,
+                first_close=Decimal("5000"),
+                last_close=Decimal("5050"),
+            )
+
+    import backend.app.services.signal_fusion_service as module
+
+    original_get_connection = module.get_connection
+    module.get_connection = lambda: FakeConnection()
+
+    try:
+        service = SignalFusionService(
+            repository=FakeSignalFusionRepository()
+        )
+
+        result = service.analyze_symbol(
+            symbol="BBRI",
+            trade_date=date(2026, 10, 5),
+        )
+
+        news = result.evidence["news"]
+
+        assert news.component == "news"
+        assert news.source == "news_events"
+        assert news.available is True
+        assert news.status == "AVAILABLE"
+        assert "CORROBORATED" in news.detail
+        assert "MEDIUM_HIGH" in news.detail
+    finally:
+        module.get_connection = original_get_connection

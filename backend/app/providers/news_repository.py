@@ -167,3 +167,43 @@ def save_news_event_source(
     connection.commit()
 
     return row[0]
+
+def get_news_events_for_symbol(
+    connection,
+    symbol: str,
+    start_date,
+    end_date,
+):
+    query = """
+        SELECT
+            id,
+            symbol,
+            canonical_title,
+            first_published_at,
+            first_detected_at,
+            importance,
+            validation_status,
+            source_count,
+            official_source_count,
+            primary_source_count,
+            independent_source_count,
+            contradicting_source_count,
+            evidence_strength
+        FROM news_events
+        WHERE symbol = %s
+          AND first_published_at >= %s
+          AND first_published_at < %s
+        ORDER BY first_published_at DESC
+    """
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            query,
+            (
+                symbol,
+                start_date,
+                end_date,
+            ),
+        )
+        return cursor.fetchall()
+
