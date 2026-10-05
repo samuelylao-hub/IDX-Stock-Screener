@@ -74,3 +74,24 @@ def signal_fusion(
         "broker_coverage": result.broker_coverage,
         "evidence": result.evidence,
     }
+from datetime import date
+from backend.app.services.screener_service import ScreenerService
+
+
+@app.get("/api/v1/screener")
+def screener(
+    trade_date: date,
+    price_lookback: int = 5,
+    investor_type: str = "all",
+    market_segment: str = "RG",
+):
+    results = ScreenerService().screen_market(
+        trade_date, price_lookback,
+        investor_type, market_segment
+    )
+
+    return {
+        "trade_date": trade_date,
+        "count": len(results),
+        "results": [r.__dict__ for r in results],
+    }
