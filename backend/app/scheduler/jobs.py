@@ -51,3 +51,13 @@ def run_market_data_update():
         print(f"Market data update failed: {error}")
 
         raise
+from backend.app.data.market_calendar import is_trading_day
+
+def run_market_data_update_if_trading_day():
+    from datetime import date
+
+    if not is_trading_day(date.today()):
+        print("Non-trading day. Market update skipped.")
+        return
+
+    run_market_data_update()

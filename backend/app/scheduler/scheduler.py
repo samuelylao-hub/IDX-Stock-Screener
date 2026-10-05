@@ -1,6 +1,6 @@
 from apscheduler.schedulers.blocking import BlockingScheduler
 
-from backend.app.scheduler.jobs import run_market_data_update
+from backend.app.scheduler.jobs import run_market_data_update_if_trading_day
 
 
 scheduler = BlockingScheduler(
@@ -10,7 +10,7 @@ scheduler = BlockingScheduler(
 
 def start_scheduler():
     scheduler.add_job(
-        run_market_data_update,
+        run_market_data_update_if_trading_day,
         "cron",
         day_of_week="mon-fri",
         hour=18,
