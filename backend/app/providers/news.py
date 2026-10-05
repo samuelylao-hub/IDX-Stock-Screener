@@ -117,6 +117,7 @@ def classify_news_source(source_name: str) -> NewsSource:
         "financial times",
         "wall street journal",
         "wsj",
+        "investing-saham",
     }:
         return NewsSource(
             name=source_name,
@@ -130,6 +131,7 @@ def classify_news_source(source_name: str) -> NewsSource:
         "kontan",
         "bisnis indonesia",
         "cnbc indonesia",
+        "cnbc-indonesia",
         "bloomberg technoz",
     }:
         return NewsSource(
