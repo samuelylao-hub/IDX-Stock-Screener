@@ -1,13 +1,15 @@
-from datetime import date
+﻿from datetime import date
 
+from backend.app.data.market_calendar import is_trading_day
 from backend.app.data.market_data import update_all_stocks
 from backend.app.scheduler.job_logger import (
     finish_job_run,
     get_or_create_job,
     start_job_run,
 )
-from backend.app.services.screener_service import ScreenerService
+from backend.app.services.notification_service import NotificationService
 from backend.app.services.screener_report import format_screener_report
+from backend.app.services.screener_service import ScreenerService
 
 
 def run_market_data_update():
@@ -23,9 +25,15 @@ def run_market_data_update():
     try:
         update_all_stocks("5d")
 
-        results = ScreenerService().screen_market(date.today())
+        results = ScreenerService().screen_market(
+            date.today(),
+            persist=True,
+        )
 
-        print(format_screener_report(results, date.today()))
+        report = format_screener_report(results, date.today())
+        print(report)
+
+        NotificationService().send_report(report)
 
         finish_job_run(
             run_id,
@@ -45,9 +53,6 @@ def run_market_data_update():
         print(f"Market data update failed: {error}")
 
         raise
-
-
-from backend.app.data.market_calendar import is_trading_day
 
 
 def run_market_data_update_if_trading_day():
