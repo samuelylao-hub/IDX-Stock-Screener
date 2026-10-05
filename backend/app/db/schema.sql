@@ -151,3 +151,29 @@ CREATE TABLE IF NOT EXISTS broker_stock_flow (
             market_segment
         )
 );
+CREATE TABLE IF NOT EXISTS screener_runs (
+    id SERIAL PRIMARY KEY,
+    trade_date DATE NOT NULL,
+    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    finished_at TIMESTAMPTZ,
+    stock_count INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS screener_results (
+    id SERIAL PRIMARY KEY,
+    screener_run_id INTEGER NOT NULL REFERENCES screener_runs(id) ON DELETE CASCADE,
+    symbol VARCHAR(10) NOT NULL,
+    score NUMERIC(8, 2) NOT NULL,
+    signal VARCHAR(30) NOT NULL,
+    confidence NUMERIC(6, 2) NOT NULL,
+    data_quality_status VARCHAR(30),
+    alignment VARCHAR(30),
+    foreign_state VARCHAR(30),
+    broker_state VARCHAR(30),
+    price_volume_state VARCHAR(30),
+    observation TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    UNIQUE (screener_run_id, symbol)
+);
