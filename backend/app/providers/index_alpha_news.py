@@ -73,6 +73,7 @@ class IndexAlphaNewsProvider(NewsProvider):
                         published_at=published_at,
                         detected_at=detected_at,
                         url=article.get("link"),
+                        description=description,
                     )
                 )
 

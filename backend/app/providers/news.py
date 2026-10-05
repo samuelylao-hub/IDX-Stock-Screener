@@ -36,6 +36,7 @@ class NewsItem:
     importance: str | None = None
     source_tier: int | None = None
     validation_status: str | None = None
+    description: str | None = None
 
 
 @dataclass
