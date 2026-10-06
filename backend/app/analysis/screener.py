@@ -25,6 +25,7 @@ class ScreenerResult:
     relative_strength_state: str = "INLINE"
     early_bullish: str = "NORMAL"
     early_bullish_score: float = 0.0
+    ranking_score: float = 0.0
 
 
 def _state_score(state: str) -> float:

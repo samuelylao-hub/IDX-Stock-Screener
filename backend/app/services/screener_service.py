@@ -5,6 +5,7 @@ from backend.app.analysis.momentum import (
     calculate_momentum,
     classify_momentum,
 )
+from backend.app.analysis.ranking import rank_screener_results
 from backend.app.analysis.relative_strength import (
     calculate_relative_strength,
     classify_relative_strength,
@@ -205,10 +206,7 @@ class ScreenerService:
                     except ValueError:
                         pass
 
-        results.sort(
-            key=lambda item: item.score,
-            reverse=True,
-        )
+        results = rank_screener_results(results)
 
         if persist:
             run_id = create_screener_run(

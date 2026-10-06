@@ -9,6 +9,8 @@
             f"#{i} {result.symbol}",
             f"Signal      : {result.signal}",
             f"Score       : {result.score}",
+            f"Early Bull  : {result.early_bullish} ({result.early_bullish_score})",
+            f"Rank Score  : {result.ranking_score}",
             f"Confidence  : {result.confidence}%",
             f"Quality     : {result.data_quality_status}",
             "",
