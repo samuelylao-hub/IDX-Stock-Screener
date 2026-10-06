@@ -1,5 +1,6 @@
-﻿from datetime import date
+from datetime import date
 
+from backend.app.analysis.alert_engine import AlertEngine
 from backend.app.data.market_calendar import is_trading_day
 from backend.app.data.market_data import update_all_stocks
 from backend.app.data.foreign_flow import update_foreign_flow_batch
@@ -30,7 +31,6 @@ def run_market_data_update():
 
         update_all_stocks("5d")
 
-        # Sync foreign + broker flow sebelum screener.
         with get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
@@ -48,23 +48,14 @@ def run_market_data_update():
                 "Tidak ada saham aktif untuk market screening."
             )
 
-        foreign_saved = update_foreign_flow_batch(
-            stocks,
-            trade_date,
-        )
-
-        broker_saved = update_broker_summary_batch(
-            stocks,
-            trade_date,
-        )
+        foreign_saved = update_foreign_flow_batch(stocks, trade_date)
+        broker_saved = update_broker_summary_batch(stocks, trade_date)
 
         print(
-            f"Foreign flow batch updated: {foreign_saved}/{len(stocks)} saham."
+            f"Foreign flow batch updated: "
+            f"{foreign_saved}/{len(stocks)} saham."
         )
-
-        print(
-            f"Broker flow batch updated: {broker_saved} rows."
-        )
+        print(f"Broker flow batch updated: {broker_saved} rows.")
 
         results = ScreenerService().screen_market(
             trade_date,
@@ -74,25 +65,29 @@ def run_market_data_update():
         report = format_screener_report(results, trade_date)
         print(report)
 
-        NotificationService().send_report(report)
+        notification = NotificationService()
+        notification.send_report(report)
+
+        alerts = AlertEngine().evaluate_all(results, trade_date)
+
+        if alerts:
+            print(f"Signal alerts: {len(alerts)}")
+            notification.send_alerts(alerts)
+        else:
+            print("Signal alerts: none")
 
         finish_job_run(
             run_id,
             "success",
-            f"Market update + screener berhasil. {len(results)} saham.",
+            f"Market update + screener berhasil. "
+            f"{len(results)} saham, {len(alerts)} alerts.",
         )
 
         print("Market data update and screener finished.")
 
     except Exception as error:
-        finish_job_run(
-            run_id,
-            "failed",
-            str(error),
-        )
-
+        finish_job_run(run_id, "failed", str(error))
         print(f"Market data update failed: {error}")
-
         raise
 
 
