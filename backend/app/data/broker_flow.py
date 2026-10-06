@@ -130,3 +130,54 @@ def update_broker_summary(
     )
 
     return saved_count
+
+def update_broker_summary_batch(
+    stocks,
+    trade_date,
+    investor_type="all",
+    market_segment="RG",
+):
+    provider = IndexAlphaProvider()
+
+    symbols = [symbol for _, symbol in stocks]
+
+    if not symbols:
+        return 0
+
+    data = provider.get_broker_summary_batch(
+        symbols,
+        trade_date,
+        investor=investor_type,
+        market=market_segment,
+    )
+
+    saved = 0
+
+    for stock_id, symbol in stocks:
+        rows = data.get(symbol, [])
+
+        summaries = [
+            BrokerSummary(
+                symbol=symbol,
+                trade_date=trade_date,
+                broker_code=row["code"],
+                buy_freq=int(row["buy_freq"]),
+                buy_volume=int(row["buy_volume"]),
+                buy_value=int(row["buy_value"]),
+                sell_freq=int(row["sell_freq"]),
+                sell_volume=int(row["sell_volume"]),
+                sell_value=int(row["sell_value"]),
+                buy_avg=float(row["buy_avg"]),
+                sell_avg=float(row["sell_avg"]),
+            )
+            for row in rows
+        ]
+
+        saved += save_broker_summary(
+            summaries=summaries,
+            stock_id=stock_id,
+            investor_type=investor_type,
+            market_segment=market_segment,
+        )
+
+    return saved

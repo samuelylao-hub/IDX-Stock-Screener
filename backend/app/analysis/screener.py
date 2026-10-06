@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import date
 
 from backend.app.analysis.signal_fusion import SignalFusionResult
+from backend.app.analysis.early_bullish import detect_early_bullish
 
 
 @dataclass
@@ -17,6 +18,13 @@ class ScreenerResult:
     broker_state: str
     price_volume_state: str
     observation: str
+    market_regime: str = "UNKNOWN"
+    momentum: float = 0.0
+    momentum_state: str = "NEUTRAL"
+    relative_strength: float = 0.0
+    relative_strength_state: str = "INLINE"
+    early_bullish: str = "NORMAL"
+    early_bullish_score: float = 0.0
 
 
 def _state_score(state: str) -> float:
@@ -88,8 +96,45 @@ def calculate_confidence(result: SignalFusionResult) -> float:
 
 def build_screener_result(
     result: SignalFusionResult,
+    market_regime: str = "UNKNOWN",
+    momentum: float = 0.0,
+    momentum_state: str = "NEUTRAL",
+    relative_strength: float = 0.0,
+    relative_strength_state: str = "INLINE",
 ) -> ScreenerResult:
     score = calculate_signal_score(result)
+
+    # Early-momentum bonus:
+    # reward stocks already outperforming the market.
+    if relative_strength_state == "OUTPERFORMING":
+        score += 15
+    elif relative_strength_state == "UNDERPERFORMING":
+        score -= 15
+
+    # Market regime adjusts conviction, not raw market direction.
+    if market_regime == "BULLISH" and momentum_state in {
+        "POSITIVE",
+        "STRONG",
+    }:
+        score += 10
+    elif market_regime == "BEARISH" and momentum_state in {
+        "NEGATIVE",
+        "WEAK",
+    }:
+        score -= 10
+
+    score = max(-100.0, min(100.0, score))
+
+    early = detect_early_bullish(
+        market_regime=market_regime,
+        momentum=momentum,
+        momentum_state=momentum_state,
+        relative_strength=relative_strength,
+        relative_strength_state=relative_strength_state,
+        price_volume_state=result.price_volume_state,
+        foreign_state=result.foreign_state,
+        broker_state=result.broker_state,
+    )
 
     return ScreenerResult(
         symbol=result.symbol,
@@ -103,4 +148,11 @@ def build_screener_result(
         broker_state=result.broker_state,
         price_volume_state=result.price_volume_state,
         observation=result.observation,
+        market_regime=market_regime,
+        momentum=momentum,
+        momentum_state=momentum_state,
+        relative_strength=relative_strength,
+        relative_strength_state=relative_strength_state,
+        early_bullish=early.state,
+        early_bullish_score=early.score,
     )

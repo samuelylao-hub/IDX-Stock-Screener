@@ -42,3 +42,41 @@ def update_foreign_history(symbol, stock_id, end_date, days=20):
         current += timedelta(days=1)
 
     return saved
+
+
+def update_foreign_flow_batch(
+    stocks,
+    trade_date,
+):
+    provider = IndexAlphaProvider()
+
+    symbols = [symbol for _, symbol in stocks]
+
+    if not symbols:
+        return 0
+
+    data = provider.get_foreign_flow_batch(
+        symbols,
+        trade_date,
+    )
+
+    saved = 0
+
+    for stock_id, symbol in stocks:
+        row = data.get(symbol)
+
+        if not row:
+            continue
+
+        flow = ForeignFlow(
+            symbol=symbol,
+            trade_date=trade_date,
+            foreign_buy=int(row["foreign_buy"]),
+            foreign_sell=int(row["foreign_sell"]),
+            net_foreign=int(row["net_foreign"]),
+        )
+
+        save_foreign_flow(flow, stock_id)
+        saved += 1
+
+    return saved

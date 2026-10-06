@@ -59,6 +59,44 @@ class IndexAlphaProvider:
             "Accept": "application/json",
         }
 
+    def get_foreign_flow_batch(
+        self,
+        symbols: list[str],
+        trade_date: date,
+        market: str = "ALL",
+    ):
+        if not self.is_available():
+            raise RuntimeError(
+                "INDEX_ALPHA_API_KEY tidak ditemukan."
+            )
+
+        response = requests.post(
+            f"{BASE_URL}/foreign-flow/batch",
+            json={
+                "tickers": symbols,
+                "from": trade_date.isoformat(),
+                "to": trade_date.isoformat(),
+                "market": market,
+            },
+            headers={
+                **self._get_headers(),
+                "Content-Type": "application/json",
+            },
+            timeout=15,
+        )
+
+        response.raise_for_status()
+
+        payload = response.json()
+
+        if not payload.get("success"):
+            raise RuntimeError(
+                payload.get("error")
+                or "Index Alpha mengembalikan response gagal."
+            )
+
+        return payload["data"]
+
     def get_foreign_flow(
         self,
         symbol: str,
@@ -101,6 +139,46 @@ class IndexAlphaProvider:
             foreign_sell=int(data["foreign_sell"]),
             net_foreign=int(data["net_foreign"]),
         )
+
+    def get_broker_summary_batch(
+        self,
+        symbols: list[str],
+        trade_date: date,
+        investor: str = "all",
+        market: str = "RG",
+    ):
+        if not self.is_available():
+            raise RuntimeError(
+                "INDEX_ALPHA_API_KEY tidak ditemukan."
+            )
+
+        response = requests.post(
+            f"{BASE_URL}/stocks/broker-summary/batch",
+            json={
+                "tickers": symbols,
+                "from": trade_date.isoformat(),
+                "to": trade_date.isoformat(),
+                "investor": investor,
+                "market": market,
+            },
+            headers={
+                **self._get_headers(),
+                "Content-Type": "application/json",
+            },
+            timeout=15,
+        )
+
+        response.raise_for_status()
+
+        payload = response.json()
+
+        if not payload.get("success"):
+            raise RuntimeError(
+                payload.get("error")
+                or "Index Alpha mengembalikan response gagal."
+            )
+
+        return payload["data"]
 
     def get_broker_summary(
         self,

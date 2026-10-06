@@ -2,6 +2,9 @@
 
 from backend.app.data.market_calendar import is_trading_day
 from backend.app.data.market_data import update_all_stocks
+from backend.app.data.foreign_flow import update_foreign_flow_batch
+from backend.app.data.broker_flow import update_broker_summary_batch
+from backend.app.database import get_connection
 from backend.app.scheduler.job_logger import (
     finish_job_run,
     get_or_create_job,
@@ -23,14 +26,52 @@ def run_market_data_update():
     run_id = start_job_run(job_id)
 
     try:
+        trade_date = date.today()
+
         update_all_stocks("5d")
 
+        # Sync foreign + broker flow sebelum screener.
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, symbol
+                    FROM stocks
+                    WHERE is_active = TRUE
+                    ORDER BY symbol
+                    """
+                )
+                stocks = cur.fetchall()
+
+        if not stocks:
+            raise RuntimeError(
+                "Tidak ada saham aktif untuk market screening."
+            )
+
+        foreign_saved = update_foreign_flow_batch(
+            stocks,
+            trade_date,
+        )
+
+        broker_saved = update_broker_summary_batch(
+            stocks,
+            trade_date,
+        )
+
+        print(
+            f"Foreign flow batch updated: {foreign_saved}/{len(stocks)} saham."
+        )
+
+        print(
+            f"Broker flow batch updated: {broker_saved} rows."
+        )
+
         results = ScreenerService().screen_market(
-            date.today(),
+            trade_date,
             persist=True,
         )
 
-        report = format_screener_report(results, date.today())
+        report = format_screener_report(results, trade_date)
         print(report)
 
         NotificationService().send_report(report)
