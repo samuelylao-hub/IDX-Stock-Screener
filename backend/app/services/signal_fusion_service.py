@@ -2,6 +2,7 @@ from datetime import date, timedelta
 
 from backend.app.database import get_connection
 from backend.app.analysis.evidence import Evidence
+from backend.app.analysis.news_signal import determine_news_signal
 from backend.app.analysis.signal_fusion import (
     SignalFusionResult,
     build_signal_fusion_result,
@@ -59,6 +60,16 @@ class SignalFusionService:
         if news_events:
             latest_event = news_events[0]
 
+            news_signal = determine_news_signal(
+                event_count=len(news_events),
+                validation_status=latest_event[6],
+                evidence_strength=latest_event[12],
+            )
+
+            result.news_state = news_signal.state
+            result.news_evidence_strength = news_signal.evidence_strength
+            result.news_event_count = news_signal.event_count
+
             result.evidence["news"] = Evidence(
                 component="news",
                 source="news_events",
@@ -72,6 +83,16 @@ class SignalFusionService:
                 ),
             )
         else:
+            news_signal = determine_news_signal(
+                event_count=0,
+                validation_status=None,
+                evidence_strength=None,
+            )
+
+            result.news_state = news_signal.state
+            result.news_evidence_strength = news_signal.evidence_strength
+            result.news_event_count = news_signal.event_count
+
             result.evidence["news"] = Evidence(
                 component="news",
                 source="news_events",
