@@ -25,7 +25,7 @@ def test_early_bullish_alert():
 
 def test_confirmed_bullish_alert():
     alert = AlertEngine().evaluate(
-        make_result(early_bullish="CONFIRMED_BULLISH"),
+        make_result(early_bullish="CONFIRMED_BULLISH", ranking_score=80.0),
         date(2026, 10, 6),
     )
 
@@ -52,10 +52,11 @@ def test_duplicate_alert_blocked():
     assert second is None
 
 
-def test_limited_quality_warning():
+def test_limited_quality_no_trading_alert():
     alert = AlertEngine().evaluate(
         make_result(data_quality_status="LIMITED"),
         date(2026, 10, 6),
     )
 
-    assert alert.level == "WARNING"
+    assert alert is None
+
