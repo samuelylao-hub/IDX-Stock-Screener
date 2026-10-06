@@ -10,11 +10,13 @@ class NotificationService:
         if not alerts:
             return
 
-        lines = ["IDX SIGNAL ALERT", ""]
+        lines = ["?? IDX SIGNAL ALERT", ""]
 
         for alert in alerts:
             lines.extend([
                 f"[{alert.level}] {alert.symbol}",
+                f"State    : {alert.state}",
+                f"Rank     : {alert.ranking_score}",
                 alert.message,
                 "",
             ])
