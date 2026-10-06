@@ -34,6 +34,7 @@ def run_market_data_update():
     print("Starting market data update...")
     job_id = get_or_create_job("market_data_update", "Update market data harian")
     run_id = start_job_run(job_id)
+    notification = _get_notification_service()
     try:
         trade_date = date.today()
         update_all_stocks("5d")
@@ -50,7 +51,6 @@ def run_market_data_update():
         results = ScreenerService().screen_market(trade_date, persist=True)
         report = format_screener_report(results, trade_date)
         print(report)
-        notification = _get_notification_service()
         notification.send_report(report)
         alerts = AlertEngine().evaluate_all(results, trade_date)
         if alerts:
@@ -61,8 +61,23 @@ def run_market_data_update():
         finish_job_run(run_id, "success", f"Market update + screener berhasil. {len(results)} saham, {len(alerts)} alerts.")
         print("Market data update and screener finished.")
     except Exception as error:
-        finish_job_run(run_id, "failed", str(error))
-        print(f"Market data update failed: {error}")
+        error_message = str(error)
+        finish_job_run(run_id, "failed", error_message)
+        print(f"Market data update failed: {error_message}")
+
+        if "403" in error_message or "Forbidden" in error_message:
+            notification.send_report(
+                "?? IDX MARKET SCAN\n\n"
+                "Market data update gagal.\n"
+                "Index Alpha menolak request (403 / quota).\n"
+                "Screening dilewati sampai API tersedia kembali."
+            )
+        else:
+            notification.send_report(
+                f"?? IDX MARKET SCAN\n\n"
+                f"Market data update gagal:\n{error_message}"
+            )
+
         raise
 
 
