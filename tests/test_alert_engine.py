@@ -60,3 +60,31 @@ def test_limited_quality_no_trading_alert():
 
     assert alert is None
 
+
+def test_new_alert_state():
+    alert = AlertEngine().evaluate(
+        make_result(early_bullish="EARLY_BULLISH", ranking_score=50.0),
+        date(2026, 10, 6),
+    )
+    assert alert.state == "NEW"
+
+def test_upgrade_alert_state():
+    engine = AlertEngine()
+    trade_date = date(2026, 10, 6)
+    first = engine.evaluate(
+        make_result(early_bullish="EARLY_BULLISH", ranking_score=50.0),
+        trade_date,
+    )
+    second = engine.evaluate(
+        make_result(early_bullish="CONFIRMED_BULLISH", ranking_score=70.0),
+        trade_date,
+    )
+    assert first.state == "NEW"
+    assert second.state == "UPGRADE"
+
+def test_new_confirmed_alert_state():
+    alert = AlertEngine().evaluate(
+        make_result(early_bullish="CONFIRMED_BULLISH", ranking_score=70.0),
+        date(2026, 10, 6),
+    )
+    assert alert.state == "NEW"

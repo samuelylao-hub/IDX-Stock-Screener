@@ -1,4 +1,3 @@
-
 from dataclasses import dataclass
 from datetime import date
 
@@ -9,6 +8,7 @@ class Alert:
     level: str
     message: str
     ranking_score: float
+    state: str
 
 class AlertEngine:
     EARLY_THRESHOLD = 40.0
@@ -16,6 +16,7 @@ class AlertEngine:
 
     def __init__(self):
         self._sent = set()
+        self._states = {}
 
     def evaluate(self, result, trade_date: date):
         if result.data_quality_status == "LIMITED":
@@ -36,6 +37,12 @@ class AlertEngine:
         if key in self._sent:
             return None
 
+        previous = self._states.get((result.symbol, trade_date))
+        state = "NEW"
+        if previous == "EARLY_BULLISH" and result.early_bullish == "CONFIRMED_BULLISH":
+            state = "UPGRADE"
+
+        self._states[(result.symbol, trade_date)] = result.early_bullish
         self._sent.add(key)
 
         return Alert(
@@ -44,6 +51,7 @@ class AlertEngine:
             level=level,
             message=f"{result.symbol}: {result.early_bullish} (rank {result.ranking_score}, score {result.score}).",
             ranking_score=result.ranking_score,
+            state=state,
         )
 
     def evaluate_all(self, results, trade_date: date):
@@ -54,4 +62,8 @@ class AlertEngine:
             if alert is not None:
                 alerts.append(alert)
 
-        return sorted(alerts, key=lambda item: item.ranking_score, reverse=True)
+        return sorted(
+            alerts,
+            key=lambda item: item.ranking_score,
+            reverse=True,
+        )
