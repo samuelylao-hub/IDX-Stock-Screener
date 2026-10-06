@@ -177,3 +177,14 @@ CREATE TABLE IF NOT EXISTS screener_results (
 
     UNIQUE (screener_run_id, symbol)
 );
+
+CREATE TABLE IF NOT EXISTS alert_states (
+    id BIGSERIAL PRIMARY KEY,
+    symbol VARCHAR(20) NOT NULL,
+    trade_date DATE NOT NULL,
+    state VARCHAR(20) NOT NULL,
+    level VARCHAR(20) NOT NULL,
+    ranking_score NUMERIC(10,2) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(symbol, trade_date)
+);

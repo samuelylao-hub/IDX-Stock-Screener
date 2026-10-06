@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from datetime import date
 
+from backend.app.db.alert_states import get_alert_state, save_alert_state
+
 @dataclass(frozen=True)
 class Alert:
     symbol: str
@@ -38,12 +40,25 @@ class AlertEngine:
             return None
 
         previous = self._states.get((result.symbol, trade_date))
+        if previous is None:
+            stored = get_alert_state(result.symbol, trade_date)
+            if stored:
+                previous = stored[0]
+
         state = "NEW"
         if previous == "EARLY_BULLISH" and result.early_bullish == "CONFIRMED_BULLISH":
             state = "UPGRADE"
 
         self._states[(result.symbol, trade_date)] = result.early_bullish
         self._sent.add(key)
+
+        save_alert_state(
+            result.symbol,
+            trade_date,
+            result.early_bullish,
+            level,
+            result.ranking_score,
+        )
 
         return Alert(
             symbol=result.symbol,
@@ -56,14 +71,8 @@ class AlertEngine:
 
     def evaluate_all(self, results, trade_date: date):
         alerts = []
-
         for result in results:
             alert = self.evaluate(result, trade_date)
             if alert is not None:
                 alerts.append(alert)
-
-        return sorted(
-            alerts,
-            key=lambda item: item.ranking_score,
-            reverse=True,
-        )
+        return sorted(alerts, key=lambda item: item.ranking_score, reverse=True)
