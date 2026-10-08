@@ -79,18 +79,12 @@ class ScreenerService:
                 )
                 broker_count = cur.fetchone()[0]
 
-        if foreign_count < active_count:
-            raise RuntimeError(
-                f"Foreign flow stale: {foreign_count}/{active_count} "
-                f"saham memiliki data {trade_date}."
+        # Foreign/broker coverage boleh partial.
+        # Saham tanpa flow pada trade_date tetap masuk screening.
+        if foreign_count < active_count or broker_count < active_count:
+            print(
+                f"FLOW COVERAGE LIMITED: foreign={foreign_count}/{active_count}, broker={broker_count}/{active_count}, date={trade_date}"
             )
-
-        if broker_count < active_count:
-            raise RuntimeError(
-                f"Broker flow stale: {broker_count}/{active_count} "
-                f"saham memiliki data {trade_date}."
-            )
-
         benchmark = self.benchmark_provider.get_history(30)
 
         market_closes = [
@@ -118,11 +112,19 @@ class ScreenerService:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT symbol
-                    FROM stocks
-                    WHERE is_active = TRUE
-                    ORDER BY symbol
-                    """
+                    SELECT st.symbol
+                    FROM stocks st
+                    WHERE st.is_active = TRUE
+                      AND EXISTS (
+                          SELECT 1
+                          FROM stock_prices sp
+                          WHERE sp.stock_id = st.id
+                            AND sp.trade_date <= %s
+                            AND sp.close IS NOT NULL
+                      )
+                    ORDER BY st.symbol
+                    """,
+                    (trade_date,),
                 )
 
                 symbols = [
@@ -223,3 +225,6 @@ class ScreenerService:
             finish_screener_run(run_id)
 
         return results
+
+
+
