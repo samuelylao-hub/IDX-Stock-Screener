@@ -7,21 +7,6 @@ class NotificationService:
             provider.send(message)
 
     def send_alerts(self, alerts) -> None:
-        if not alerts:
-            return
-
-        lines = ["?? IDX SIGNAL ALERT", ""]
-
         for alert in alerts:
-            lines.extend([
-                f"[{alert.level}] {alert.symbol}",
-                f"State    : {alert.state}",
-                f"Rank     : {alert.ranking_score}",
-                alert.message,
-                "",
-            ])
-
-        message = "\n".join(lines)
-
-        for provider in self.providers:
-            provider.send(message)
+            for provider in self.providers:
+                provider.send(str(alert))
