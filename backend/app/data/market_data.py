@@ -133,7 +133,7 @@ def save_prices_from_yahoo(symbol: str, period: str = "5d"):
         conn.close()
 
 
-def update_all_stocks(period: str = "5d"):
+def update_all_stocks(period: str = "5d", symbols=None):
     from datetime import date
 
     today = date.today()
@@ -146,14 +146,26 @@ def update_all_stocks(period: str = "5d"):
 
     try:
         with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT symbol
-                FROM stocks
-                WHERE is_active = TRUE
-                ORDER BY symbol
-                """
-            )
+            if symbols is None:
+                cursor.execute(
+                    """
+                    SELECT symbol
+                    FROM stocks
+                    WHERE is_active = TRUE
+                    ORDER BY symbol
+                    """
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT symbol
+                    FROM stocks
+                    WHERE is_active = TRUE
+                      AND symbol = ANY(%s)
+                    ORDER BY symbol
+                    """,
+                    (list(symbols),),
+                )
 
             stocks = cursor.fetchall()
 

@@ -55,10 +55,15 @@ def update_foreign_flow_batch(
     if not symbols:
         return 0
 
-    data = provider.get_foreign_flow_batch(
-        symbols,
-        trade_date,
-    )
+    data = {}
+
+    for i in range(0, len(symbols), 50):
+        batch = symbols[i:i + 50]
+        batch_data = provider.get_foreign_flow_batch(
+            batch,
+            trade_date,
+        )
+        data.update(batch_data)
 
     saved = 0
 

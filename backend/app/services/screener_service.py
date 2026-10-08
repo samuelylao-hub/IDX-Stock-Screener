@@ -38,45 +38,85 @@ class ScreenerService:
         price_lookback=5,
         investor_type="all",
         market_segment="RG",
+        symbols=None,
         persist=False,
     ):
         # Flow data wajib tersedia pada trade_date.
         # Jangan pernah mencampur harga terbaru dengan flow stale.
         with get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT COUNT(*)
-                    FROM stocks
-                    WHERE is_active = TRUE
-                    """
-                )
+                if symbols is None:
+                    cur.execute(
+                        """
+                        SELECT COUNT(*)
+                        FROM stocks
+                        WHERE is_active = TRUE
+                        """
+                    )
+                else:
+                    cur.execute(
+                        """
+                        SELECT COUNT(*)
+                        FROM stocks
+                        WHERE is_active = TRUE
+                          AND symbol = ANY(%s)
+                        """,
+                        (list(symbols),),
+                    )
                 active_count = cur.fetchone()[0]
 
-                cur.execute(
-                    """
-                    SELECT COUNT(DISTINCT st.id)
-                    FROM stocks st
-                    JOIN foreign_daily_flow ff
-                        ON ff.stock_id = st.id
-                       AND ff.trade_date = %s
-                    WHERE st.is_active = TRUE
-                    """,
-                    (trade_date,),
-                )
+                if symbols is None:
+                    cur.execute(
+                        """
+                        SELECT COUNT(DISTINCT st.id)
+                        FROM stocks st
+                        JOIN foreign_daily_flow ff
+                            ON ff.stock_id = st.id
+                           AND ff.trade_date = %s
+                        WHERE st.is_active = TRUE
+                        """,
+                        (trade_date,),
+                    )
+                else:
+                    cur.execute(
+                        """
+                        SELECT COUNT(DISTINCT st.id)
+                        FROM stocks st
+                        JOIN foreign_daily_flow ff
+                            ON ff.stock_id = st.id
+                           AND ff.trade_date = %s
+                        WHERE st.is_active = TRUE
+                          AND st.symbol = ANY(%s)
+                        """,
+                        (trade_date, list(symbols)),
+                    )
                 foreign_count = cur.fetchone()[0]
 
-                cur.execute(
-                    """
-                    SELECT COUNT(DISTINCT st.id)
-                    FROM stocks st
-                    JOIN broker_stock_flow bf
-                        ON bf.stock_id = st.id
-                       AND bf.trade_date = %s
-                    WHERE st.is_active = TRUE
-                    """,
-                    (trade_date,),
-                )
+                if symbols is None:
+                    cur.execute(
+                        """
+                        SELECT COUNT(DISTINCT st.id)
+                        FROM stocks st
+                        JOIN broker_stock_flow bf
+                            ON bf.stock_id = st.id
+                           AND bf.trade_date = %s
+                        WHERE st.is_active = TRUE
+                        """,
+                        (trade_date,),
+                    )
+                else:
+                    cur.execute(
+                        """
+                        SELECT COUNT(DISTINCT st.id)
+                        FROM stocks st
+                        JOIN broker_stock_flow bf
+                            ON bf.stock_id = st.id
+                           AND bf.trade_date = %s
+                        WHERE st.is_active = TRUE
+                          AND st.symbol = ANY(%s)
+                        """,
+                        (trade_date, list(symbols)),
+                    )
                 broker_count = cur.fetchone()[0]
 
         # Foreign/broker coverage boleh partial.
@@ -110,19 +150,21 @@ class ScreenerService:
 
         with get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT st.symbol
-                    FROM stocks st
-                    WHERE st.is_active = TRUE
-                    ORDER BY st.symbol
-                    """,
-                )
-
-                symbols = [
-                    row[0]
-                    for row in cur.fetchall()
-                ]
+                if symbols is None:
+                    cur.execute(
+                        """
+                        SELECT st.symbol
+                        FROM stocks st
+                        WHERE st.is_active = TRUE
+                        ORDER BY st.symbol
+                        """,
+                    )
+                    symbols = [
+                        row[0]
+                        for row in cur.fetchall()
+                    ]
+                else:
+                    symbols = list(symbols)
 
                 results = []
 
