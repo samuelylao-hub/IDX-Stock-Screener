@@ -5,6 +5,10 @@ CREATE TABLE IF NOT EXISTS stocks (
     sector VARCHAR(100),
     subsector VARCHAR(100),
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      thematic_group VARCHAR(50),
+      intraday_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+      liquidity_tier VARCHAR(20) NOT NULL DEFAULT 'UNKNOWN',
+      avg_volume_20d BIGINT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -36,6 +40,10 @@ CREATE TABLE IF NOT EXISTS scheduled_jobs (
     job_name VARCHAR(100) NOT NULL UNIQUE,
     description TEXT,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      thematic_group VARCHAR(50),
+      intraday_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+      liquidity_tier VARCHAR(20) NOT NULL DEFAULT 'UNKNOWN',
+      avg_volume_20d BIGINT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -188,3 +196,13 @@ CREATE TABLE IF NOT EXISTS alert_states (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(symbol, trade_date)
 );
+CREATE TABLE IF NOT EXISTS intraday_alert_states (
+    symbol VARCHAR(20) NOT NULL,
+    trade_date DATE NOT NULL,
+    state VARCHAR(50) NOT NULL,
+    score NUMERIC(10,2) NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (symbol, trade_date)
+);
+
+
