@@ -1,4 +1,4 @@
-﻿from datetime import time
+from datetime import time
 
 from backend.app.analysis.intraday import analyze_intraday
 from backend.app.providers.intraday_yahoo import IntradayYahooProvider
@@ -37,17 +37,25 @@ class IntradayScanner:
         results = []
 
         for symbol in symbols:
-            stock_rows = _regular_session(
-                self.provider.get_5m(symbol)
-            )
+            try:
+                stock_rows = _regular_session(
+                    self.provider.get_5m(symbol)
+                )
 
-            result = analyze_intraday(
-                symbol=symbol,
-                stock_rows=stock_rows,
-                market_rows=market_rows,
-            )
+                if not stock_rows:
+                    print(f"  {symbol}: NO_DATA - skipped")
+                    continue
 
-            results.append(result)
+                result = analyze_intraday(
+                    symbol=symbol,
+                    stock_rows=stock_rows,
+                    market_rows=market_rows,
+                )
+
+                results.append(result)
+
+            except Exception as error:
+                print(f"  {symbol}: ERROR - skipped ({error})")
 
         return sorted(
             results,
