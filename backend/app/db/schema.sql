@@ -206,3 +206,13 @@ CREATE TABLE IF NOT EXISTS intraday_alert_states (
 );
 
 
+
+
+ALTER TABLE screener_results
+    ADD COLUMN IF NOT EXISTS market_status VARCHAR(30) NOT NULL DEFAULT 'UNKNOWN';
+
+ALTER TABLE screener_results
+    ADD COLUMN IF NOT EXISTS risk_flags JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+ALTER TABLE screener_results
+    ADD COLUMN IF NOT EXISTS status_reason TEXT;

@@ -26,6 +26,12 @@ class ScreenerResult:
     early_bullish: str = "NORMAL"
     early_bullish_score: float = 0.0
     ranking_score: float = 0.0
+    market_status: str = "UNKNOWN"
+    risk_flags: tuple[str, ...] = ()
+    status_reason: str = ""
+    market_status: str = "UNKNOWN"
+    risk_flags: tuple[str, ...] = ()
+    status_reason: str = ""
 
 
 def _state_score(state: str) -> float:

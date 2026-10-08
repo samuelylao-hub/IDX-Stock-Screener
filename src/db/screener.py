@@ -37,9 +37,15 @@ def save_screener_result(run_id: int, result) -> None:
                     foreign_state,
                     broker_state,
                     price_volume_state,
-                    observation
+                    observation,
+                    market_status,
+                    risk_flags,
+                    status_reason
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s::jsonb, %s
+                )
                 """,
                 (
                     run_id,
@@ -53,6 +59,9 @@ def save_screener_result(run_id: int, result) -> None:
                     result.broker_state,
                     result.price_volume_state,
                     result.observation,
+                    result.market_status,
+                    __import__("json").dumps(list(result.risk_flags)),
+                    result.status_reason,
                 ),
             )
 

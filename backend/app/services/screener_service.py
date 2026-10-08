@@ -115,16 +115,8 @@ class ScreenerService:
                     SELECT st.symbol
                     FROM stocks st
                     WHERE st.is_active = TRUE
-                      AND EXISTS (
-                          SELECT 1
-                          FROM stock_prices sp
-                          WHERE sp.stock_id = st.id
-                            AND sp.trade_date <= %s
-                            AND sp.close IS NOT NULL
-                      )
                     ORDER BY st.symbol
                     """,
-                    (trade_date,),
                 )
 
                 symbols = [
@@ -136,6 +128,56 @@ class ScreenerService:
 
                 for symbol in symbols:
                     try:
+                        cur.execute(
+                            """
+                            SELECT market_status, risk_flags, status_reason
+                            FROM stocks
+                            WHERE symbol = %s
+                            """,
+                            (symbol,),
+                        )
+
+                        status_row = cur.fetchone()
+
+                        market_status = (
+                            status_row[0] if status_row else "UNKNOWN"
+                        )
+
+                        if market_status == "SUSPENDED":
+                            risk_flags = tuple(
+                                status_row[1] or []
+                            )
+                            status_reason = (
+                                status_row[2] or ""
+                            )
+
+                            print(
+                                f"{symbol} SKIP SUSPENDED"
+                            )
+
+                            from backend.app.analysis.screener import ScreenerResult
+
+                            results.append(
+                                ScreenerResult(
+                                    symbol=symbol,
+                                    trade_date=trade_date,
+                                    score=0.0,
+                                    signal="SKIP",
+                                    confidence=0.0,
+                                    data_quality_status="LIMITED",
+                                    alignment="UNKNOWN",
+                                    foreign_state="UNKNOWN",
+                                    broker_state="UNKNOWN",
+                                    price_volume_state="UNKNOWN",
+                                    observation="Market status: SUSPENDED",
+                                    market_regime=market_regime.state,
+                                    market_status=market_status,
+                                    risk_flags=risk_flags,
+                                    status_reason=status_reason,
+                                )
+                            )
+                            continue
+
                         signal = self.signal_service.analyze_symbol(
                             symbol=symbol,
                             trade_date=trade_date,
