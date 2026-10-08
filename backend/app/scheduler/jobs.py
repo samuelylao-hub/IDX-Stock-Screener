@@ -20,6 +20,7 @@ from backend.app.scheduler.job_logger import (
 from backend.app.services.notification_service import NotificationService
 from backend.app.services.screener_report import format_screener_report
 from backend.app.services.screener_service import ScreenerService
+from backend.app.focused_universe import FOCUSED_UNIVERSE
 
 
 def _get_notification_service():
@@ -37,10 +38,22 @@ def run_market_data_update():
     notification = _get_notification_service()
     try:
         trade_date = date.today()
-        update_all_stocks("5d")
+        focused_symbols = list(FOCUSED_UNIVERSE)
+
+        update_all_stocks("5d", symbols=focused_symbols)
+
         with get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT id, symbol FROM stocks WHERE is_active = TRUE ORDER BY symbol")
+                cur.execute(
+                    """
+                    SELECT id, symbol
+                    FROM stocks
+                    WHERE is_active = TRUE
+                      AND symbol = ANY(%s)
+                    ORDER BY symbol
+                    """,
+                    (focused_symbols,),
+                )
                 stocks = cur.fetchall()
         if not stocks:
             raise RuntimeError("Tidak ada saham aktif untuk market screening.")
@@ -48,7 +61,11 @@ def run_market_data_update():
         broker_saved = update_broker_summary_batch(stocks, trade_date)
         print(f"Foreign flow batch updated: {foreign_saved}/{len(stocks)} saham.")
         print(f"Broker flow batch updated: {broker_saved} rows.")
-        results = ScreenerService().screen_market(trade_date, persist=True)
+        results = ScreenerService().screen_market(
+            trade_date,
+            symbols=[symbol for _, symbol in stocks],
+            persist=True,
+        )
         report = format_screener_report(results, trade_date)
         print(report)
         notification.send_report(report)
