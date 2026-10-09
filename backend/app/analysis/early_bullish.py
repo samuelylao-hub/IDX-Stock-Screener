@@ -58,6 +58,9 @@ def detect_early_bullish(
     elif broker_state == "DISTRIBUTION":
         score -= 7.5
 
+    # Add bounded numeric contributions within each category.
+    score += max(-5.0, min(5.0, momentum))
+    score += max(-5.0, min(5.0, relative_strength))
     score = max(-100.0, min(100.0, score))
 
     bullish_confirmations = sum(

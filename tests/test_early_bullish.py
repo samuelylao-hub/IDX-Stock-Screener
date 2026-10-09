@@ -1,4 +1,4 @@
-from backend.app.analysis.early_bullish import detect_early_bullish
+﻿from backend.app.analysis.early_bullish import detect_early_bullish
 
 
 def test_early_bullish():
@@ -45,3 +45,20 @@ def test_early_bullish_weak_stock():
     )
 
     assert result.state == "NORMAL"
+
+
+def test_numeric_momentum_changes_score_with_same_state():
+    common = {
+        "market_regime": "NEUTRAL",
+        "momentum_state": "POSITIVE",
+        "relative_strength": 0.5,
+        "relative_strength_state": "INLINE",
+        "price_volume_state": "NEUTRAL",
+        "foreign_state": "NEUTRAL",
+        "broker_state": "NEUTRAL",
+    }
+
+    lower = detect_early_bullish(momentum=2.1, **common)
+    higher = detect_early_bullish(momentum=4.0, **common)
+
+    assert higher.score > lower.score
