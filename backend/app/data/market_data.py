@@ -71,8 +71,54 @@ def save_daily_price(
             )
 
 
+def _validated_price_values(row, symbol: str) -> tuple:
+    fields = ("Open", "High", "Low", "Close", "Adj Close", "Volume")
+    values = {
+        field: _get_price_value(row, field)
+        for field in fields
+    }
+
+    for field in ("Open", "High", "Low", "Close", "Adj Close"):
+        if values[field] <= 0:
+            raise ValueError(
+                f"{symbol}: nilai {field} harus lebih besar dari nol."
+            )
+
+    open_price = values["Open"]
+    high_price = values["High"]
+    low_price = values["Low"]
+    close_price = values["Close"]
+    volume = values["Volume"]
+
+    if high_price < max(open_price, low_price, close_price):
+        raise ValueError(f"{symbol}: nilai High tidak konsisten dengan OHLC.")
+
+    if low_price > min(open_price, high_price, close_price):
+        raise ValueError(f"{symbol}: nilai Low tidak konsisten dengan OHLC.")
+
+    if volume < 0 or not volume.is_integer():
+        raise ValueError(
+            f"{symbol}: Volume harus bilangan bulat nonnegatif."
+        )
+
+    return (
+        open_price,
+        high_price,
+        low_price,
+        close_price,
+        values["Adj Close"],
+        int(volume),
+    )
+
+
 def save_prices_from_yahoo(symbol: str, period: str = "5d") -> int:
     data = get_daily_prices(symbol, period)
+
+    # Validasi seluruh data sebelum membuka koneksi database.
+    validated_rows = []
+    for trade_date, row in data.iterrows():
+        price_values = _validated_price_values(row, symbol)
+        validated_rows.append((trade_date.date(), *price_values))
 
     with get_connection() as conn:
         with conn.cursor() as cursor:
@@ -88,20 +134,8 @@ def save_prices_from_yahoo(symbol: str, period: str = "5d") -> int:
                 )
 
             stock_id = stock[0]
-            saved = 0
 
-            for trade_date, row in data.iterrows():
-                values = (
-                    stock_id,
-                    trade_date.date(),
-                    _get_price_value(row, "Open"),
-                    _get_price_value(row, "High"),
-                    _get_price_value(row, "Low"),
-                    _get_price_value(row, "Close"),
-                    _get_price_value(row, "Adj Close"),
-                    int(_get_price_value(row, "Volume")),
-                )
-
+            for trade_date, *price_values in validated_rows:
                 cursor.execute(
                     """
                     INSERT INTO stock_prices (
@@ -118,11 +152,10 @@ def save_prices_from_yahoo(symbol: str, period: str = "5d") -> int:
                         adjusted_close = EXCLUDED.adjusted_close,
                         volume = EXCLUDED.volume
                     """,
-                    values,
+                    (stock_id, trade_date, *price_values),
                 )
-                saved += 1
 
-    return saved
+    return len(validated_rows)
 
 
 def update_all_stocks(period: str = "5d", symbols=None):

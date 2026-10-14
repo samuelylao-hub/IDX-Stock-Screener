@@ -21,6 +21,11 @@ from src.db.screener import (
 )
 
 
+def _is_price_fresh(latest_price_date, trade_date):
+    """True only when a stock has a price row for the screening date."""
+    return latest_price_date is not None and latest_price_date == trade_date
+
+
 class ScreenerService:
     def __init__(
         self,
@@ -217,6 +222,35 @@ class ScreenerService:
                                     risk_flags=risk_flags,
                                     status_reason=status_reason,
                                 )
+                            )
+                            continue
+
+                        cur.execute(
+                            """
+                            SELECT MAX(sp.trade_date)
+                            FROM stock_prices sp
+                            JOIN stocks st ON st.id = sp.stock_id
+                            WHERE st.symbol = %s
+                              AND sp.trade_date <= %s
+                              AND sp.close IS NOT NULL
+                            """,
+                            (symbol, trade_date),
+                        )
+                        latest_price_row = cur.fetchone()
+                        latest_price_date = (
+                            latest_price_row[0]
+                            if latest_price_row
+                            else None
+                        )
+
+                        if not _is_price_fresh(
+                            latest_price_date,
+                            trade_date,
+                        ):
+                            print(
+                                f"{symbol} SKIP STALE_PRICE "
+                                f"latest={latest_price_date} "
+                                f"screening={trade_date}"
                             )
                             continue
 
