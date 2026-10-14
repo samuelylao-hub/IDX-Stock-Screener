@@ -40,7 +40,34 @@ def run_market_data_update():
         trade_date = date.today()
         focused_symbols = list(FOCUSED_UNIVERSE)
 
-        update_all_stocks("5d", symbols=focused_symbols)
+        price_summary = update_all_stocks("5d", symbols=focused_symbols)
+
+        # Backward-compatible for existing tests/mocks that return None.
+        if isinstance(price_summary, dict):
+            if price_summary.get("skipped"):
+                raise RuntimeError(
+                    "Update harga dilewati karena bukan hari bursa; screening dihentikan."
+                )
+
+            requested = price_summary.get("requested", 0)
+            price_success = price_summary.get("success", 0)
+            price_failed = price_summary.get("failed", 0)
+
+            if requested == 0 or price_success == 0:
+                details = "; ".join(
+                    f"{item.get('symbol', '?')}: {item.get('error', 'gagal')}"
+                    for item in price_summary.get("failures", [])[:10]
+                )
+                raise RuntimeError(
+                    "Update harga gagal total; screening dihentikan. "
+                    f"Diminta={requested}, berhasil={price_success}, gagal={price_failed}. "
+                    f"Detail: {details or 'Tidak ada saham yang berhasil diperbarui.'}"
+                )
+        else:
+            price_success = None
+            price_failed = 0
+            requested = None
+
 
         with get_connection() as conn:
             with conn.cursor() as cur:
@@ -75,7 +102,33 @@ def run_market_data_update():
             notification.send_alerts(alerts)
         else:
             print("Signal alerts: none")
-        finish_job_run(run_id, "success", f"Market update + screener berhasil. {len(results)} saham, {len(alerts)} alerts.")
+        if isinstance(price_summary, dict) and price_failed > 0:
+            failed_symbols = ", ".join(
+                item.get("symbol", "?")
+                for item in price_summary.get("failures", [])[:15]
+            )
+            status_message = (
+                f"PARTIAL: screening selesai untuk {len(results)} saham dengan "
+                f"{len(alerts)} alerts, tetapi update harga gagal untuk "
+                f"{price_failed}/{requested} saham. "
+                f"Simbol gagal: {failed_symbols or 'lihat log update harga'}."
+            )
+            finish_job_run(run_id, "failed", status_message)
+            notification.send_report(
+                "IDX MARKET SCAN ? HASIL PARSIAL\\n\\n"
+                f"Screening selesai: {len(results)} saham; alerts: {len(alerts)}.\\n"
+                f"Update harga berhasil: {price_success}/{requested}.\\n"
+                f"Update harga gagal: {price_failed}.\\n"
+                f"Simbol gagal: {failed_symbols or 'lihat log job'}."
+            )
+            print(status_message)
+        else:
+            finish_job_run(
+                run_id,
+                "success",
+                f"Market update + screener berhasil. {len(results)} saham, "
+                f"{len(alerts)} alerts.",
+            )
         print("Market data update and screener finished.")
     except Exception as error:
         error_message = str(error)
