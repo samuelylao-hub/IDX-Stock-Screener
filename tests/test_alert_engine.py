@@ -68,6 +68,15 @@ def test_duplicate_alert_blocked():
     assert second is None
 
 
+def test_partial_quality_no_trading_alert():
+    alert = AlertEngine().evaluate(
+        make_result(data_quality_status="PARTIAL"),
+        date(2026, 10, 6),
+    )
+
+    assert alert is None
+
+
 def test_limited_quality_no_trading_alert():
     alert = AlertEngine().evaluate(
         make_result(data_quality_status="LIMITED"),

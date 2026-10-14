@@ -26,7 +26,7 @@ class AlertEngine:
         self._states = {}
 
     def evaluate(self, result, trade_date: date):
-        if result.data_quality_status == "LIMITED":
+        if result.data_quality_status != "GOOD":
             return None
 
         if result.early_bullish == "CONFIRMED_BULLISH":
