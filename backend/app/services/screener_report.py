@@ -4,6 +4,10 @@
         "",
     ]
 
+    if not results:
+        lines.append("Tidak ada hasil screening untuk tanggal ini.")
+        return "\n".join(lines)
+
     for i, result in enumerate(results, 1):
         lines.extend([
             f"#{i} {result.symbol}",

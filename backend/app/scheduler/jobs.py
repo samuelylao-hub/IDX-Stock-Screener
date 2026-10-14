@@ -10,6 +10,7 @@ from backend.app.data.market_calendar import is_trading_day
 from backend.app.data.market_data import update_all_stocks
 from backend.app.data.foreign_flow import update_foreign_flow_batch
 from backend.app.data.broker_flow import update_broker_summary_batch
+from backend.app.data.index_alpha_quota import reserve_daily_index_alpha_symbols
 from backend.app.database import get_connection
 from backend.app.notifications.telegram import TelegramNotificationProvider
 from backend.app.scheduler.job_logger import (
@@ -28,6 +29,7 @@ def _get_notification_service():
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
     if token and chat_id:
         return NotificationService([TelegramNotificationProvider(token, chat_id)])
+    print("WARNING: Telegram nonaktif; TELEGRAM_BOT_TOKEN atau TELEGRAM_CHAT_ID belum tersedia.")
     return NotificationService()
 
 
@@ -84,10 +86,27 @@ def run_market_data_update():
                 stocks = cur.fetchall()
         if not stocks:
             raise RuntimeError("Tidak ada saham aktif untuk market screening.")
-        foreign_saved = update_foreign_flow_batch(stocks, trade_date)
-        broker_saved = update_broker_summary_batch(stocks, trade_date)
-        print(f"Foreign flow batch updated: {foreign_saved}/{len(stocks)} saham.")
-        print(f"Broker flow batch updated: {broker_saved} rows.")
+        foreign_stocks = reserve_daily_index_alpha_symbols(
+            get_connection, stocks, trade_date, "foreign_flow", limit=3
+        )
+        broker_stocks = reserve_daily_index_alpha_symbols(
+            get_connection, stocks, trade_date, "broker_summary", limit=2
+        )
+
+        foreign_saved = (
+            update_foreign_flow_batch(foreign_stocks, trade_date)
+            if foreign_stocks else 0
+        )
+        broker_saved = (
+            update_broker_summary_batch(broker_stocks, trade_date)
+            if broker_stocks else 0
+        )
+        print(
+            f"Index Alpha quota: foreign={len(foreign_stocks)} ticker, "
+            f"broker={len(broker_stocks)} ticker; maksimal 5 unit/hari."
+        )
+        print(f"Foreign flow updated: {foreign_saved}/{len(foreign_stocks)} saham.")
+        print(f"Broker flow updated: {broker_saved} rows.")
         results = ScreenerService().screen_market(
             trade_date,
             symbols=[symbol for _, symbol in stocks],
@@ -115,10 +134,10 @@ def run_market_data_update():
             )
             finish_job_run(run_id, "failed", status_message)
             notification.send_report(
-                "IDX MARKET SCAN ? HASIL PARSIAL\\n\\n"
-                f"Screening selesai: {len(results)} saham; alerts: {len(alerts)}.\\n"
-                f"Update harga berhasil: {price_success}/{requested}.\\n"
-                f"Update harga gagal: {price_failed}.\\n"
+                "IDX MARKET SCAN - HASIL PARSIAL\n\n"
+                f"Screening selesai: {len(results)} saham; alerts: {len(alerts)}.\n"
+                f"Update harga berhasil: {price_success}/{requested}.\n"
+                f"Update harga gagal: {price_failed}.\n"
                 f"Simbol gagal: {failed_symbols or 'lihat log job'}."
             )
             print(status_message)
@@ -132,20 +151,33 @@ def run_market_data_update():
         print("Market data update and screener finished.")
     except Exception as error:
         error_message = str(error)
-        finish_job_run(run_id, "failed", error_message)
+
+        try:
+            finish_job_run(run_id, "failed", error_message)
+        except Exception as log_error:
+            print(f"WARNING: gagal menyimpan status job: {log_error}")
+
         print(f"Market data update failed: {error_message}")
 
         if "403" in error_message or "Forbidden" in error_message:
-            notification.send_report(
-                "?? IDX MARKET SCAN\n\n"
+            failure_message = (
+                "IDX MARKET SCAN - GAGAL\n\n"
                 "Market data update gagal.\n"
                 "Index Alpha menolak request (403 / quota).\n"
                 "Screening dilewati sampai API tersedia kembali."
             )
         else:
-            notification.send_report(
-                f"?? IDX MARKET SCAN\n\n"
+            failure_message = (
+                "IDX MARKET SCAN - GAGAL\n\n"
                 f"Market data update gagal:\n{error_message}"
+            )
+
+        try:
+            notification.send_report(failure_message)
+        except Exception as notification_error:
+            print(
+                "WARNING: notifikasi kegagalan juga gagal dikirim: "
+                f"{notification_error}"
             )
 
         raise

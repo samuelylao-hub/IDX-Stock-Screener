@@ -70,4 +70,12 @@ def test_scheduler_marks_partial_price_update_as_failed():
         call.args[0]
         for call in notification_cls.return_value.send_report.call_args_list
     ]
-    assert any("HASIL PARSIAL" in report for report in reports)
+    partial_reports = [
+        report for report in reports if "HASIL PARSIAL" in report
+    ]
+    assert partial_reports
+    partial_report = partial_reports[0]
+    assert "\n\n" in partial_report
+    assert "\\n" not in partial_report
+    assert "Update harga berhasil: 1/2." in partial_report
+    assert "Update harga gagal: 1." in partial_report

@@ -25,9 +25,15 @@ def test_scheduler_handles_index_alpha_failure(
         "403 Client Error: Forbidden for url: https://api.indexalpha.id/foreign-flow/batch"
     )
 
-    with patch(
-        "backend.app.scheduler.jobs.get_connection"
-    ) as get_connection:
+    with (
+        patch(
+            "backend.app.scheduler.jobs.reserve_daily_index_alpha_symbols",
+            return_value=[(1, "BBCA")],
+        ),
+        patch(
+            "backend.app.scheduler.jobs.get_connection"
+        ) as get_connection,
+    ):
         conn = get_connection.return_value.__enter__.return_value
         cur = conn.cursor.return_value.__enter__.return_value
         cur.fetchall.return_value = [(1, "BBCA"), (2, "BBRI")]
@@ -44,3 +50,34 @@ def test_scheduler_handles_index_alpha_failure(
     assert "Index Alpha" in message
     assert "403" in message
     assert "Screening dilewati" in message
+
+
+def test_scheduler_preserves_original_error_when_failure_notification_fails():
+    with (
+        patch("backend.app.scheduler.jobs.update_all_stocks"),
+        patch(
+            "backend.app.scheduler.jobs.update_foreign_flow_batch",
+            side_effect=RuntimeError("403 Client Error: Forbidden"),
+        ),
+        patch("backend.app.scheduler.jobs.NotificationService") as notification_cls,
+        patch("backend.app.scheduler.jobs.get_or_create_job", return_value=1),
+        patch("backend.app.scheduler.jobs.start_job_run", return_value=7),
+        patch("backend.app.scheduler.jobs.finish_job_run") as finish,
+        patch(
+            "backend.app.scheduler.jobs.reserve_daily_index_alpha_symbols",
+            return_value=[(1, "BBCA")],
+        ),
+        patch("backend.app.scheduler.jobs.get_connection") as get_connection,
+    ):
+        notification_cls.return_value.send_report.side_effect = RuntimeError(
+            "Telegram unavailable"
+        )
+        conn = get_connection.return_value.__enter__.return_value
+        cursor = conn.cursor.return_value.__enter__.return_value
+        cursor.fetchall.return_value = [(1, "BBCA")]
+
+        with pytest.raises(RuntimeError, match="403 Client Error: Forbidden"):
+            run_market_data_update()
+
+    finish.assert_called_once_with(7, "failed", "403 Client Error: Forbidden")
+    notification_cls.return_value.send_report.assert_called_once()
