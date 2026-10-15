@@ -54,3 +54,22 @@ def test_message_under_limit_is_sent_once():
         provider.send(message)
 
     send.assert_called_once_with(message)
+
+
+
+def test_long_message_is_split_under_telegram_limit():
+    from unittest.mock import patch
+    from backend.app.notifications.telegram import TelegramNotificationProvider
+
+    provider = TelegramNotificationProvider("fake-token", "fake-chat")
+    message = ("x" * 3999 + "\n") * 3
+
+    with patch.object(provider, "_send") as send:
+        provider.send(message)
+
+    assert send.call_count > 1
+    assert all(
+        len(call.args[0]) <= provider.MAX_MESSAGE_LENGTH
+        for call in send.call_args_list
+    )
+    assert "".join(call.args[0] for call in send.call_args_list) == message
