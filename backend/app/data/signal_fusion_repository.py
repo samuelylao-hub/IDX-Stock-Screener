@@ -164,50 +164,57 @@ class SignalFusionRepository:
         connection=None,
     ) -> dict[int, FlowWindow]:
         own_connection = connection is None
-
         if own_connection:
             connection = get_connection()
 
         try:
+            max_window = max(windows)
             with connection.cursor() as cursor:
-                max_window = max(windows)
+                cursor.execute(
+                    """
+                    SELECT calendar_date
+                    FROM market_calendar
+                    WHERE is_trading_day = TRUE
+                      AND calendar_date <= %s
+                    ORDER BY calendar_date DESC
+                    LIMIT %s
+                    """,
+                    (trade_date, max_window),
+                )
+                trading_dates = [
+                    row[0] for row in reversed(cursor.fetchall())
+                ]
+
+                if not trading_dates:
+                    return {
+                        window: self._build_flow_window(window, [])
+                        for window in windows
+                    }
 
                 cursor.execute(
                     """
-                    SELECT
-                        f.trade_date,
-                        f.foreign_net_value
+                    SELECT f.trade_date, f.foreign_net_value
                     FROM foreign_daily_flow f
-                    JOIN stocks s
-                      ON s.id = f.stock_id
+                    JOIN stocks s ON s.id = f.stock_id
                     WHERE s.symbol = %s
-                      AND f.trade_date <= %s
-                      AND f.foreign_net_value IS NOT NULL
-                    ORDER BY f.trade_date DESC
-                    LIMIT %s
+                      AND f.trade_date = ANY(%s)
                     """,
-                    (
-                        symbol,
-                        trade_date,
-                        max_window,
-                    ),
+                    (symbol, trading_dates),
                 )
-
-                rows = cursor.fetchall()
-
-                points = [
-                    (row[0], row[1])
-                    for row in reversed(rows)
-                ]
-
-                return {
-                    window: self._build_flow_window(
-                        window_days=window,
-                        values=[value for _, value in points[-window:]],
-                    )
-                    for window in windows
+                flow_by_date = {
+                    row[0]: row[1] for row in cursor.fetchall()
                 }
 
+            return {
+                window: self._build_flow_window(
+                    window,
+                    [
+                        flow_by_date.get(day)
+                        for day in trading_dates[-window:]
+                    ],
+                )
+                for window in windows
+            }
         finally:
             if own_connection:
                 connection.close()
@@ -222,54 +229,67 @@ class SignalFusionRepository:
         connection=None,
     ) -> dict[int, FlowWindow]:
         own_connection = connection is None
-
         if own_connection:
             connection = get_connection()
 
         try:
+            max_window = max(windows)
             with connection.cursor() as cursor:
-                max_window = max(windows)
+                cursor.execute(
+                    """
+                    SELECT calendar_date
+                    FROM market_calendar
+                    WHERE is_trading_day = TRUE
+                      AND calendar_date <= %s
+                    ORDER BY calendar_date DESC
+                    LIMIT %s
+                    """,
+                    (trade_date, max_window),
+                )
+                trading_dates = [
+                    row[0] for row in reversed(cursor.fetchall())
+                ]
+
+                if not trading_dates:
+                    return {
+                        window: self._build_flow_window(window, [])
+                        for window in windows
+                    }
 
                 cursor.execute(
                     """
                     SELECT
                         b.trade_date,
-                        SUM(b.buy_value - b.sell_value)
+                        SUM(b.buy_value - b.sell_value) AS net_value
                     FROM broker_stock_flow b
-                    JOIN stocks s
-                      ON s.id = b.stock_id
+                    JOIN stocks s ON s.id = b.stock_id
                     WHERE s.symbol = %s
-                      AND b.trade_date <= %s
+                      AND b.trade_date = ANY(%s)
                       AND b.investor_type = %s
                       AND b.market_segment = %s
                     GROUP BY b.trade_date
-                    ORDER BY b.trade_date DESC
-                    LIMIT %s
                     """,
                     (
                         symbol,
-                        trade_date,
+                        trading_dates,
                         investor_type,
                         market_segment,
-                        max_window,
                     ),
                 )
-
-                rows = cursor.fetchall()
-
-                points = [
-                    (row[0], row[1])
-                    for row in reversed(rows)
-                ]
-
-                return {
-                    window: self._build_flow_window(
-                        window_days=window,
-                        values=[value for _, value in points[-window:]],
-                    )
-                    for window in windows
+                flow_by_date = {
+                    row[0]: row[1] for row in cursor.fetchall()
                 }
 
+            return {
+                window: self._build_flow_window(
+                    window,
+                    [
+                        flow_by_date.get(day)
+                        for day in trading_dates[-window:]
+                    ],
+                )
+                for window in windows
+            }
         finally:
             if own_connection:
                 connection.close()

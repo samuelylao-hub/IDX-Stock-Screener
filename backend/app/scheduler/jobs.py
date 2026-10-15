@@ -113,14 +113,9 @@ def run_market_data_update():
             persist=True,
         )
         report = format_screener_report(results, trade_date)
-        print(report)
-        notification.send_report(report)
         alerts = AlertEngine().evaluate_all(results, trade_date)
-        if alerts:
-            print(f"Signal alerts: {len(alerts)}")
-            notification.send_alerts(alerts)
-        else:
-            print("Signal alerts: none")
+
+        # Tentukan status job dan susun satu laporan final sebelum mengirimnya.
         if isinstance(price_summary, dict) and price_failed > 0:
             failed_symbols = ", ".join(
                 item.get("symbol", "?")
@@ -133,12 +128,13 @@ def run_market_data_update():
                 f"Simbol gagal: {failed_symbols or 'lihat log update harga'}."
             )
             finish_job_run(run_id, "failed", status_message)
-            notification.send_report(
-                "IDX MARKET SCAN - HASIL PARSIAL\n\n"
-                f"Screening selesai: {len(results)} saham; alerts: {len(alerts)}.\n"
-                f"Update harga berhasil: {price_success}/{requested}.\n"
-                f"Update harga gagal: {price_failed}.\n"
-                f"Simbol gagal: {failed_symbols or 'lihat log job'}."
+            final_report = (
+                report.rstrip()
+                + "\n\nIDX MARKET SCAN - HASIL PARSIAL\n\n"
+                + f"Screening selesai: {len(results)} saham; alerts: {len(alerts)}.\n"
+                + f"Update harga berhasil: {price_success}/{requested}.\n"
+                + f"Update harga gagal: {price_failed}.\n"
+                + f"Simbol gagal: {failed_symbols or 'lihat log job'}."
             )
             print(status_message)
         else:
@@ -148,6 +144,29 @@ def run_market_data_update():
                 f"Market update + screener berhasil. {len(results)} saham, "
                 f"{len(alerts)} alerts.",
             )
+            final_report = report
+
+        print(final_report)
+        try:
+            notification.send_report(final_report)
+        except Exception as notification_error:
+            print(
+                "WARNING: screening selesai, tetapi laporan Telegram gagal: "
+                f"{notification_error}"
+            )
+
+        if alerts:
+            print(f"Signal alerts: {len(alerts)}")
+            try:
+                notification.send_alerts(alerts)
+            except Exception as notification_error:
+                print(
+                    "WARNING: screening selesai, tetapi alert Telegram gagal: "
+                    f"{notification_error}"
+                )
+        else:
+            print("Signal alerts: none")
+
         print("Market data update and screener finished.")
     except Exception as error:
         error_message = str(error)
