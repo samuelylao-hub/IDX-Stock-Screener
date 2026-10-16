@@ -1,5 +1,6 @@
-import os
-from datetime import date
+﻿import os
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 
@@ -39,7 +40,7 @@ def run_market_data_update():
     run_id = start_job_run(job_id)
     notification = _get_notification_service()
     try:
-        trade_date = date.today()
+        trade_date = datetime.now(ZoneInfo("Asia/Jakarta")).date()
         focused_symbols = list(FOCUSED_UNIVERSE)
 
         price_summary = update_all_stocks("5d", symbols=focused_symbols)
@@ -203,7 +204,7 @@ def run_market_data_update():
 
 
 def run_market_data_update_if_trading_day():
-    if not is_trading_day(date.today()):
+    if not is_trading_day(datetime.now(ZoneInfo("Asia/Jakarta")).date()):
         print("Non-trading day. Market update skipped.")
         return
     run_market_data_update()

@@ -1,5 +1,5 @@
-import time
-from datetime import date, datetime
+﻿import time
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from backend.app.analysis.intraday_alert import IntradayAlertEngine
@@ -44,7 +44,7 @@ def run():
     while True:
         now = datetime.now(JAKARTA_TZ)
 
-        if not is_trading_day(date.today()):
+        if not is_trading_day(datetime.now(JAKARTA_TZ).date()):
             print(f"[{now:%Y-%m-%d %H:%M:%S}] Non-trading day. Waiting...")
             time.sleep(INTERVAL_SECONDS)
             continue
