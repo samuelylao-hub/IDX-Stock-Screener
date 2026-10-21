@@ -1,4 +1,5 @@
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 import yfinance as yf
 
@@ -111,7 +112,7 @@ def save_prices_from_yahoo(symbol: str, period: str = "5d"):
 
 
 def update_all_stocks(period: str = "5d", batch_size: int = 50):
-    today = date.today()
+    today = datetime.now(ZoneInfo("Asia/Jakarta")).date()
 
     if not is_trading_day(today):
         print(f"{today} bukan hari Bursa. Update dilewati.")

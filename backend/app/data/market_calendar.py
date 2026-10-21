@@ -72,6 +72,5 @@ def is_trading_day(calendar_date: date):
     if result is not None:
         return result[1]
 
-    # Senin-Jumat dianggap hari Bursa
-    # kecuali ada override libur di database
-    return True
+    # Fail-safe: tanggal tanpa entri kalender tidak dianggap hari Bursa.
+    return False

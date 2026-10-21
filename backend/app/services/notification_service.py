@@ -9,4 +9,4 @@ class NotificationService:
     def send_alerts(self, alerts) -> None:
         for alert in alerts:
             for provider in self.providers:
-                provider.send(str(alert))
+                provider.send(getattr(alert, 'message', str(alert)))

@@ -39,10 +39,12 @@ class NewsIngestionService:
     def ingest(
         self,
         limit: int = 100,
+        items: list[NewsItem] | None = None,
     ) -> int:
-        items = self.provider.get_news(
-            limit=limit,
-        )
+        if items is None:
+            items = self.provider.get_news(
+                limit=limit,
+            )
 
         events: dict[str, NewsEvent] = {}
 

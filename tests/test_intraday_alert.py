@@ -168,3 +168,23 @@ def test_intraday_alert_reasons_are_preserved():
         "volume_price_accumulation"
         in alert.reasons
     )
+
+
+def test_intraday_alert_includes_news_context_without_changing_score():
+    engine = IntradayAlertEngine()
+    alerts = engine.evaluate_all(
+        [_result(score=70.0)],
+        news_context_by_symbol={
+            "BBCA": {
+                "news_state": "CONFIRMED",
+                "impact_state": "IMPACT_ELIGIBLE",
+                "detail": "News impact eligible with HIGH evidence.",
+            }
+        },
+    )
+
+    assert len(alerts) == 1
+    assert alerts[0].score == 70.0
+    assert alerts[0].news_state == "CONFIRMED"
+    assert alerts[0].news_impact == "IMPACT_ELIGIBLE"
+    assert "News impact: IMPACT_ELIGIBLE" in alerts[0].message
