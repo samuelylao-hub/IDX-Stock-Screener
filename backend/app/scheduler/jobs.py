@@ -1,4 +1,5 @@
 ﻿import os
+import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -45,6 +46,17 @@ def run_market_data_update():
 
         price_summary = update_all_stocks("5d", symbols=focused_symbols)
 
+        # Retry sekali hanya jika seluruh update harga gagal.
+        if (
+            isinstance(price_summary, dict)
+            and not price_summary.get("skipped")
+            and price_summary.get("requested", 0) > 0
+            and price_summary.get("success", 0) == 0
+        ):
+            print("Update harga gagal total; mencoba ulang sekali dalam 5 detik.")
+            time.sleep(5)
+            price_summary = update_all_stocks("5d", symbols=focused_symbols)
+
         # Backward-compatible for existing tests/mocks that return None.
         if isinstance(price_summary, dict):
             if price_summary.get("skipped"):
@@ -56,7 +68,7 @@ def run_market_data_update():
             price_success = price_summary.get("success", 0)
             price_failed = price_summary.get("failed", 0)
 
-            if requested == 0 or price_success == 0:
+            if requested == 0:
                 details = "; ".join(
                     f"{item.get('symbol', '?')}: {item.get('error', 'gagal')}"
                     for item in price_summary.get("failures", [])[:10]
@@ -71,6 +83,17 @@ def run_market_data_update():
             price_failed = 0
             requested = None
 
+
+        # Jangan gunakan kuota Index Alpha jika seluruh update harga gagal.
+        if isinstance(price_summary, dict) and price_success == 0:
+            details = "; ".join(
+                f"{item.get('symbol', '?')}: {item.get('error', 'gagal')}"
+                for item in price_summary.get("failures", [])[:10]
+            )
+            raise RuntimeError(
+                f"Update harga gagal total. Diminta={requested}, "
+                f"berhasil={price_success}, gagal={price_failed}. {details}"
+            )
 
         with get_connection() as conn:
             with conn.cursor() as cur:
@@ -208,3 +231,4 @@ def run_market_data_update_if_trading_day():
         print("Non-trading day. Market update skipped.")
         return
     run_market_data_update()
+

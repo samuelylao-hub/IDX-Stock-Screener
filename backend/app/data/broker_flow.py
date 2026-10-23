@@ -137,30 +137,80 @@ def update_broker_summary_batch(
     investor_type="all",
     market_segment="RG",
 ):
-    provider = IndexAlphaProvider()
+    from pathlib import Path
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
 
+    log_path = Path("logs/broker_flow.log")
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def diagnostic(message):
+        timestamp = datetime.now(ZoneInfo("Asia/Jakarta")).isoformat(timespec="seconds")
+        with log_path.open("a", encoding="utf-8") as log:
+            log.write(f"{timestamp} WIB | BROKER_BATCH_DIAGNOSTIC | {message}\n")
+
+    provider = IndexAlphaProvider()
     symbols = [symbol for _, symbol in stocks]
 
     if not symbols:
+        diagnostic(f"NO_SYMBOLS trade_date={trade_date}")
         return 0
 
     data = {}
-
     for i in range(0, len(symbols), 50):
         batch = symbols[i:i + 50]
-        batch_data = provider.get_broker_summary_batch(
-            batch,
-            trade_date,
-            investor=investor_type,
-            market=market_segment,
-        )
+        try:
+            batch_data = provider.get_broker_summary_batch(
+                batch,
+                trade_date,
+                investor=investor_type,
+                market=market_segment,
+            )
+        except Exception as exc:
+            diagnostic(
+                f"API_ERROR trade_date={trade_date} ticker_count={len(batch)} "
+                f"error_type={type(exc).__name__} error={str(exc)[:500]}"
+            )
+            raise
+
+        if not isinstance(batch_data, dict):
+            diagnostic(
+                f"INVALID_RESPONSE trade_date={trade_date} "
+                f"response_type={type(batch_data).__name__}"
+            )
+            raise RuntimeError("Respons batch broker summary bukan objek mapping.")
+
         data.update(batch_data)
+        diagnostic(
+            f"API_RESPONSE trade_date={trade_date} requested={len(batch)} "
+            f"returned_symbols={len(batch_data)}"
+        )
+
+    missing_symbols = [symbol for symbol in symbols if symbol not in data]
+    if missing_symbols:
+        diagnostic(
+            f"MISSING_SYMBOLS trade_date={trade_date} "
+            f"symbols={','.join(missing_symbols)}"
+        )
+        print(
+            "PERINGATAN broker flow: simbol tidak ada dalam respons API: "
+            + ", ".join(missing_symbols)
+        )
 
     saved = 0
-
+    row_counts = {symbol: len(data.get(symbol, [])) for _, symbol in stocks}
+    diagnostic(
+        f"ROW_COUNTS trade_date={trade_date} "
+        + ",".join(f"{symbol}:{count}" for symbol, count in row_counts.items())
+    )
+    empty_symbols = [symbol for symbol, count in row_counts.items() if count == 0]
+    if empty_symbols:
+        diagnostic(
+            f"EMPTY_ROWS trade_date={trade_date} "
+            f"symbols={",".join(empty_symbols)}"
+        )
     for stock_id, symbol in stocks:
         rows = data.get(symbol, [])
-
         summaries = [
             BrokerSummary(
                 symbol=symbol,
@@ -177,7 +227,6 @@ def update_broker_summary_batch(
             )
             for row in rows
         ]
-
         saved += save_broker_summary(
             summaries=summaries,
             stock_id=stock_id,
@@ -185,4 +234,8 @@ def update_broker_summary_batch(
             market_segment=market_segment,
         )
 
+    diagnostic(
+        f"SAVE_COMPLETE trade_date={trade_date} requested={len(stocks)} "
+        f"returned_symbols={len(data)} saved_rows={saved}"
+    )
     return saved

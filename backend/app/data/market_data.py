@@ -1,4 +1,5 @@
-﻿import math
+﻿import time
+import math
 
 import yfinance as yf
 
@@ -8,19 +9,38 @@ from backend.app.data.market_calendar import is_trading_day
 
 def get_daily_prices(symbol: str, period: str = "5d"):
     ticker = f"{symbol}.JK"
-    data = yf.download(
-        ticker,
-        period=period,
-        progress=False,
-        auto_adjust=False,
+    attempt_errors = []
+
+    for attempt in range(3):
+        time.sleep(1 if attempt == 0 else attempt * 2)
+        try:
+            data = yf.download(
+                ticker,
+                period=period,
+                progress=False,
+                auto_adjust=False,
+                threads=False,
+                timeout=30,
+            )
+        except Exception as exc:
+            detail = f"attempt={attempt + 1}/3 exception={type(exc).__name__}: {exc}"
+            attempt_errors.append(detail)
+            print(f"[YAHOO_DIAGNOSTIC] {symbol}: {detail}")
+            continue
+
+        if data is not None and not data.empty:
+            return data
+
+        detail = f"attempt={attempt + 1}/3 empty_response ticker={ticker}"
+        attempt_errors.append(detail)
+        print(f"[YAHOO_DIAGNOSTIC] {symbol}: {detail}")
+
+    details = " | ".join(attempt_errors)
+    raise RuntimeError(
+        f"Yahoo Finance gagal mengambil data untuk {symbol} "
+        f"setelah 3 percobaan. Detail: {details}"
     )
 
-    if data is None or data.empty:
-        raise ValueError(
-            f"Yahoo Finance tidak mengembalikan data untuk {symbol}."
-        )
-
-    return data
 
 
 def _get_price_value(row, field: str) -> float:

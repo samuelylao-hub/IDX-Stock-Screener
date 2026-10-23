@@ -33,14 +33,30 @@ class IndexAlphaNewsProvider(NewsProvider):
                 "INDEX_ALPHA_API_KEY belum tersedia."
             )
 
-        response = requests.get(
-            self.API_URL,
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-            },
-            timeout=15,
-        )
-        response.raise_for_status()
+        response = None
+        last_error = None
+
+        for attempt in range(3):
+            try:
+                response = requests.get(
+                    self.API_URL,
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                    },
+                    timeout=(5, 10),
+                )
+                response.raise_for_status()
+                last_error = None
+                break
+            except requests.exceptions.RequestException as exc:
+                last_error = exc
+                if attempt < 2:
+                    import time
+                    time.sleep(2 * (attempt + 1))
+
+        if last_error is not None:
+            raise last_error
+
 
         payload = response.json()
         data = payload.get("data", {})

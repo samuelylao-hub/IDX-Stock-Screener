@@ -106,3 +106,29 @@ def test_batch_functions_return_zero_for_empty_universe():
     foreign_provider.return_value.get_foreign_flow_batch.assert_not_called()
     broker_provider.return_value.get_broker_summary_batch.assert_not_called()
 
+def test_broker_batch_reports_symbols_missing_from_response(capsys):
+    stocks = [(1, "BBCA"), (2, "BBRI")]
+    response = {
+        "BBCA": [{
+            "code": "YP",
+            "buy_freq": 1,
+            "buy_volume": 10,
+            "buy_value": 100,
+            "sell_freq": 1,
+            "sell_volume": 5,
+            "sell_value": 50,
+            "buy_avg": 10,
+            "sell_avg": 10,
+        }]
+    }
+
+    with (
+        patch("backend.app.data.broker_flow.IndexAlphaProvider") as provider_class,
+        patch("backend.app.data.broker_flow.save_broker_summary", side_effect=lambda summaries, **kwargs: len(summaries)),
+    ):
+        provider_class.return_value.get_broker_summary_batch.return_value = response
+        saved = update_broker_summary_batch(stocks, TRADE_DATE)
+
+    assert saved == 1
+    assert "BBRI" in capsys.readouterr().out
+
