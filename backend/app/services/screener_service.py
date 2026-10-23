@@ -320,6 +320,15 @@ class ScreenerService:
                                 )
                             ),
                         )
+                        # Carry the status metadata from stocks into the result
+                        # that is persisted and consumed by the alert engine.
+                        result.market_status = market_status
+                        result.risk_flags = tuple(
+                            status_row[1] or [] if status_row else []
+                        )
+                        result.status_reason = (
+                            status_row[2] or "" if status_row else ""
+                        )
 
                         results.append(result)
 
