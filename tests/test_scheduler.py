@@ -106,9 +106,9 @@ def test_scheduler_does_not_repeat_full_universe_after_total_price_failure():
         with pytest.raises(RuntimeError, match="Update harga gagal total"):
             run_market_data_update()
 
-    update_prices.assert_called_once_with("5d", symbols=__import__(
-        "backend.app.focused_universe", fromlist=["FOCUSED_UNIVERSE"]
-    ).FOCUSED_UNIVERSE)
+    from backend.app.focused_universe import FOCUSED_UNIVERSE
+
+    update_prices.assert_called_once_with("5d", symbols=list(FOCUSED_UNIVERSE))
     reserve.assert_not_called()
     finish.assert_called_once()
     notification_service.return_value.send_report.assert_called_once()
