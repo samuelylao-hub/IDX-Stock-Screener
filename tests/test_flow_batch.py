@@ -132,3 +132,22 @@ def test_broker_batch_reports_symbols_missing_from_response(capsys):
     assert saved == 1
     assert "BBRI" in capsys.readouterr().out
 
+
+
+def test_broker_batch_treats_null_symbol_payload_as_empty(capsys):
+    stocks = [(1, "BBCA"), (2, "BBRI")]
+    response = {"BBCA": [], "BBRI": None}
+
+    with (
+        patch("backend.app.data.broker_flow.IndexAlphaProvider") as provider_class,
+        patch(
+            "backend.app.data.broker_flow.save_broker_summary",
+            side_effect=lambda summaries, **kwargs: len(summaries),
+        ) as save_summary,
+    ):
+        provider_class.return_value.get_broker_summary_batch.return_value = response
+        saved = update_broker_summary_batch(stocks, TRADE_DATE)
+
+    assert saved == 0
+    assert save_summary.call_count == 2
+    assert "EMPTY_ROWS" in capsys.readouterr().out
