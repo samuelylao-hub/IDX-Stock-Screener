@@ -29,9 +29,6 @@ class ScreenerResult:
     market_status: str = "UNKNOWN"
     risk_flags: tuple[str, ...] = ()
     status_reason: str = ""
-    market_status: str = "UNKNOWN"
-    risk_flags: tuple[str, ...] = ()
-    status_reason: str = ""
 
 
 def _state_score(state: str) -> float:
