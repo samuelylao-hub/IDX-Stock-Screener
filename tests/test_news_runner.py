@@ -264,3 +264,38 @@ def test_news_runner_preserves_ingestion_error_if_failure_status_update_fails():
     write_log.assert_any_call(
         "FAILED TO UPDATE JOB STATUS: RuntimeError: simulated status update failure"
     )
+
+
+
+def test_news_ingestion_report_lists_each_article_source_title_and_link():
+    from datetime import datetime, timezone
+    from types import SimpleNamespace
+
+    items = [
+        SimpleNamespace(
+            source="CNBC-Indonesia",
+            title="BEI Gembok Perdagangan Emiten",
+            published_at=datetime(2026, 10, 21, 3, 40, tzinfo=timezone.utc),
+            url="https://example.com/article",
+        ),
+        SimpleNamespace(
+            source="Kontan",
+            title="Saham Bergerak Hari Ini",
+            published_at=datetime(2026, 10, 21, 4, 0, tzinfo=timezone.utc),
+            url="https://example.com/kontan",
+        ),
+    ]
+
+    report = news_runner.format_news_ingestion_report(
+        items=items,
+        saved_count=1,
+        report_time="2026-10-23 18:00:00 WIB",
+    )
+
+    assert "Artikel diterima dari provider: 2" in report
+    assert "Jumlah sumber berita: 2" in report
+    assert "Event tersimpan/diproses untuk saham yang cocok: 1" in report
+    assert "[CNBC-Indonesia] BEI Gembok Perdagangan Emiten" in report
+    assert "[Kontan] Saham Bergerak Hari Ini" in report
+    assert "https://example.com/article" in report
+    assert "https://example.com/kontan" in report
