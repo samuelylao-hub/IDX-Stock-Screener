@@ -216,6 +216,8 @@ ALTER TABLE screener_results
 
 ALTER TABLE screener_results
     ADD COLUMN IF NOT EXISTS risk_flags JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE screener_results
+    ADD COLUMN IF NOT EXISTS status_reason TEXT;
 
 -- Keep existing databases compatible with the stock-status screening query.
 ALTER TABLE stocks
