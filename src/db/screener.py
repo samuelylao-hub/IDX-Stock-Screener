@@ -1,4 +1,4 @@
-﻿from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from src.db.connection import get_connection
 
@@ -16,7 +16,7 @@ def create_screener_run(trade_date: date, stock_count: int) -> int:
                 VALUES (%s, %s, %s)
                 RETURNING id
                 """,
-                (trade_date, datetime.now(), stock_count),
+                (trade_date, datetime.now(timezone.utc), stock_count),
             )
             return cur.fetchone()[0]
 

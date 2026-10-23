@@ -1,4 +1,4 @@
-﻿def format_screener_report(results, trade_date):
+def format_screener_report(results, trade_date):
     lines = [
         f"IDX MARKET SCAN - {trade_date}",
         "",
@@ -17,6 +17,9 @@
             f"Rank Score  : {result.ranking_score}",
             f"Confidence  : {result.confidence}%",
             f"Quality     : {result.data_quality_status}",
+            f"Foreign     : {getattr(result, 'foreign_state', 'UNKNOWN')}",
+            f"Broker      : {getattr(result, 'broker_state', 'UNKNOWN')}",
+            f"Price/Vol   : {getattr(result, 'price_volume_state', 'UNKNOWN')}",
             "",
         ])
 
