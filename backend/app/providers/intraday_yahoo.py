@@ -13,6 +13,8 @@ class IntradayYahooProvider:
             interval="5m",
             progress=False,
             auto_adjust=False,
+            threads=False,
+            timeout=15,
         )
 
         rows = []
