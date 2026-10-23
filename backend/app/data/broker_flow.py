@@ -188,6 +188,19 @@ def update_broker_summary_batch(
             raise RuntimeError("Respons batch broker summary bukan objek mapping.")
 
         data.update(batch_data)
+        for response_symbol, rows in batch_data.items():
+            if rows is None:
+                # Some API responses include a symbol key with a null payload.
+                # Treat it as empty data, not as a successful saved batch.
+                data[response_symbol] = []
+            elif not isinstance(rows, list):
+                diagnostic(
+                    f"INVALID_SYMBOL_PAYLOAD trade_date={trade_date} "
+                    f"symbol={response_symbol} payload_type={type(rows).__name__}"
+                )
+                raise RuntimeError(
+                    f"Payload broker summary tidak valid untuk {response_symbol}."
+                )
         diagnostic(
             f"API_RESPONSE trade_date={trade_date} requested={len(batch)} "
             f"returned_symbols={len(batch_data)}"
