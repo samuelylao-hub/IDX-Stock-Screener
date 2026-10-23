@@ -225,7 +225,4 @@ ALTER TABLE stocks
 ALTER TABLE stocks
     ADD COLUMN IF NOT EXISTS risk_flags JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE stocks
-    ADD COLUMN IF NOT EXISTS status_reason TEXT;;
-
-ALTER TABLE screener_results
     ADD COLUMN IF NOT EXISTS status_reason TEXT;
