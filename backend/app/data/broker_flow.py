@@ -137,17 +137,24 @@ def update_broker_summary_batch(
     investor_type="all",
     market_segment="RG",
 ):
-    from pathlib import Path
     from datetime import datetime
+    from pathlib import Path
     from zoneinfo import ZoneInfo
 
-    log_path = Path("logs/broker_flow.log")
-    log_path.parent.mkdir(parents=True, exist_ok=True)
+    project_root = Path(__file__).resolve().parents[3]
+    log_path = project_root / "logs" / "broker_flow.log"
 
     def diagnostic(message):
         timestamp = datetime.now(ZoneInfo("Asia/Jakarta")).isoformat(timespec="seconds")
-        with log_path.open("a", encoding="utf-8") as log:
-            log.write(f"{timestamp} WIB | BROKER_BATCH_DIAGNOSTIC | {message}\n")
+        line = f"{timestamp} WIB | BROKER_BATCH_DIAGNOSTIC | {message}"
+        print(line)
+        try:
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            with log_path.open("a", encoding="utf-8") as log:
+                log.write(line + "\n")
+        except OSError as exc:
+            # Diagnostic failures must not break the market-data update.
+            print(f"WARNING: gagal menulis broker diagnostic log: {exc}")
 
     provider = IndexAlphaProvider()
     symbols = [symbol for _, symbol in stocks]
@@ -207,7 +214,7 @@ def update_broker_summary_batch(
     if empty_symbols:
         diagnostic(
             f"EMPTY_ROWS trade_date={trade_date} "
-            f"symbols={",".join(empty_symbols)}"
+            f"symbols={','.join(empty_symbols)}"
         )
     for stock_id, symbol in stocks:
         rows = data.get(symbol, [])
