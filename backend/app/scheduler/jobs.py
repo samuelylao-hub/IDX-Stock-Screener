@@ -1,5 +1,4 @@
 ﻿import os
-import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -46,16 +45,8 @@ def run_market_data_update():
 
         price_summary = update_all_stocks("5d", symbols=focused_symbols)
 
-        # Retry sekali hanya jika seluruh update harga gagal.
-        if (
-            isinstance(price_summary, dict)
-            and not price_summary.get("skipped")
-            and price_summary.get("requested", 0) > 0
-            and price_summary.get("success", 0) == 0
-        ):
-            print("Update harga gagal total; mencoba ulang sekali dalam 5 detik.")
-            time.sleep(5)
-            price_summary = update_all_stocks("5d", symbols=focused_symbols)
+        # Each ticker already has its own retry policy in market_data.py.
+        # Do not repeat the entire 100-symbol batch when all tickers fail.
 
         # Backward-compatible for existing tests/mocks that return None.
         if isinstance(price_summary, dict):
