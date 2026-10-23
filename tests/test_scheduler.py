@@ -81,3 +81,34 @@ def test_scheduler_preserves_original_error_when_failure_notification_fails():
 
     finish.assert_called_once_with(7, "failed", "403 Client Error: Forbidden")
     notification_cls.return_value.send_report.assert_called_once()
+
+
+def test_scheduler_does_not_repeat_full_universe_after_total_price_failure():
+    failure_summary = {
+        "requested": 2,
+        "success": 0,
+        "failed": 2,
+        "rows_saved": 0,
+        "skipped": False,
+        "failures": [
+            {"symbol": "BBCA", "error": "Yahoo unavailable"},
+            {"symbol": "BBRI", "error": "Yahoo unavailable"},
+        ],
+    }
+    with (
+        patch("backend.app.scheduler.jobs.update_all_stocks", return_value=failure_summary) as update_prices,
+        patch("backend.app.scheduler.jobs.NotificationService") as notification_service,
+        patch("backend.app.scheduler.jobs.get_or_create_job", return_value=1),
+        patch("backend.app.scheduler.jobs.start_job_run", return_value=7),
+        patch("backend.app.scheduler.jobs.finish_job_run") as finish,
+        patch("backend.app.scheduler.jobs.reserve_daily_index_alpha_symbols") as reserve,
+    ):
+        with pytest.raises(RuntimeError, match="Update harga gagal total"):
+            run_market_data_update()
+
+    update_prices.assert_called_once_with("5d", symbols=__import__(
+        "backend.app.focused_universe", fromlist=["FOCUSED_UNIVERSE"]
+    ).FOCUSED_UNIVERSE)
+    reserve.assert_not_called()
+    finish.assert_called_once()
+    notification_service.return_value.send_report.assert_called_once()
