@@ -23,6 +23,51 @@ from backend.app.services.news_ingestion_service import (
 
 JAKARTA_TZ = ZoneInfo("Asia/Jakarta")
 LOG_PATH = Path(__file__).resolve().parents[3] / "logs" / "news_runner.log"
+MAX_ARTICLE_DETAILS = 30
+
+
+def format_news_ingestion_report(items, saved_count: int, report_time: str) -> str:
+    source_counts = Counter(
+        str(getattr(item, "source", None) or "Sumber tidak diketahui")
+        for item in items
+    )
+    source_lines = [
+        f"- {source}: {count} artikel"
+        for source, count in source_counts.most_common(10)
+    ]
+
+    article_lines = []
+    for index, item in enumerate(items[:MAX_ARTICLE_DETAILS], start=1):
+        source = str(getattr(item, "source", None) or "Sumber tidak diketahui")
+        title = " ".join(str(getattr(item, "title", "") or "(tanpa judul)").split())
+        published_at = getattr(item, "published_at", None)
+        if published_at is not None:
+            published_text = published_at.strftime("%Y-%m-%d %H:%M UTC")
+        else:
+            published_text = "waktu terbit tidak tersedia"
+        url = getattr(item, "url", None)
+        article_lines.append(
+            f"{index}. [{source}] {title}\n"
+            f"   Terbit: {published_text}\n"
+            f"   Link: {url or 'tidak tersedia'}"
+        )
+
+    if len(items) > MAX_ARTICLE_DETAILS:
+        article_lines.append(
+            f"... {len(items) - MAX_ARTICLE_DETAILS} artikel lainnya tidak ditampilkan."
+        )
+
+    return (
+        "IDX STOCK SCREENER | LAPORAN INGESTION BERITA\n"
+        f"Waktu laporan: {report_time}\n"
+        f"Artikel diterima dari provider: {len(items)}\n"
+        f"Jumlah sumber berita: {len(source_counts)}\n"
+        f"Event tersimpan/diproses untuk saham yang cocok: {saved_count}\n"
+        "\nRINGKASAN SUMBER:\n"
+        + ("\n".join(source_lines) if source_lines else "- Tidak ada artikel")
+        + "\n\nDAFTAR ARTIKEL DAN SUMBER:\n"
+        + ("\n\n".join(article_lines) if article_lines else "- Tidak ada artikel diterima")
+    )
 
 
 def write_log(message: str) -> None:
@@ -96,23 +141,11 @@ def main() -> int:
             if not token or not chat_id:
                 write_log("TELEGRAM_SKIPPED: TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID belum tersedia")
             else:
-                source_counts = Counter(
-                    str(getattr(item, "source", None) or "Sumber tidak diketahui")
-                    for item in items
-                )
                 report_time = datetime.now(JAKARTA_TZ).strftime("%Y-%m-%d %H:%M:%S WIB")
-                source_lines = [
-                    f"- {source}: {count}"
-                    for source, count in source_counts.most_common(10)
-                ]
-                message = (
-                    "IDX STOCK SCREENER | LAPORAN INGESTION BERITA\n"
-                    f"Waktu: {report_time}\n"
-                    f"Artikel diterima: {len(items)}\n"
-                    f"Sumber berita: {len(source_counts)}\n"
-                    f"Event tersimpan/diproses: {saved_count}\n"
-                    "\nRincian sumber:\n"
-                    + ("\n".join(source_lines) if source_lines else "- Tidak ada artikel")
+                message = format_news_ingestion_report(
+                    items=items,
+                    saved_count=saved_count,
+                    report_time=report_time,
                 )
                 notification = NotificationService([
                     TelegramNotificationProvider(token, chat_id)
