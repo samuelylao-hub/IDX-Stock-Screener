@@ -9,6 +9,9 @@ CREATE TABLE IF NOT EXISTS stocks (
       intraday_enabled BOOLEAN NOT NULL DEFAULT FALSE,
       liquidity_tier VARCHAR(20) NOT NULL DEFAULT 'UNKNOWN',
       avg_volume_20d BIGINT,
+    market_status VARCHAR(30) NOT NULL DEFAULT 'UNKNOWN',
+    risk_flags JSONB NOT NULL DEFAULT '[]'::jsonb,
+    status_reason TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -213,6 +216,14 @@ ALTER TABLE screener_results
 
 ALTER TABLE screener_results
     ADD COLUMN IF NOT EXISTS risk_flags JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+-- Keep existing databases compatible with the stock-status screening query.
+ALTER TABLE stocks
+    ADD COLUMN IF NOT EXISTS market_status VARCHAR(30) NOT NULL DEFAULT 'UNKNOWN';
+ALTER TABLE stocks
+    ADD COLUMN IF NOT EXISTS risk_flags JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE stocks
+    ADD COLUMN IF NOT EXISTS status_reason TEXT;;
 
 ALTER TABLE screener_results
     ADD COLUMN IF NOT EXISTS status_reason TEXT;
