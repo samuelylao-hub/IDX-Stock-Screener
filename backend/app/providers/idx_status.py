@@ -108,6 +108,51 @@ def fetch_long_suspensions():
     return list(result.values())
 
 
+def sync():
+    """Mark listed long-suspended symbols in the local stocks table.
+
+    This deliberately updates only symbols present in a successfully parsed IDX
+    response. It does not clear older SUSPENDED statuses when a symbol vanishes
+    from the page, because absence alone is not sufficient proof that trading
+    has resumed.
+    """
+    rows = fetch_long_suspensions()
+    if not rows:
+        raise RuntimeError(
+            "IDX suspension page returned no parsed rows; refusing to change statuses."
+        )
+
+    from backend.app.database import get_connection
+
+    updated = 0
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            for row in rows:
+                reason = (
+                    f"IDX suspensi 6 bulan sejak "
+                    f"{row['suspension_date'].isoformat()}"
+                )
+                cur.execute(
+                    """
+                    UPDATE stocks
+                    SET market_status = 'SUSPENDED',
+                        risk_flags = '["SUSPENDED"]'::jsonb,
+                        status_reason = %s,
+                        updated_at = NOW()
+                    WHERE symbol = %s
+                    """,
+                    (reason, row["symbol"]),
+                )
+                updated += cur.rowcount
+        conn.commit()
+
+    print(
+        f"IDX suspension sync complete: parsed={len(rows)}, "
+        f"stocks_updated={updated}"
+    )
+    return updated
+
+
 if __name__ == "__main__":
     rows = fetch_long_suspensions()
 
