@@ -175,5 +175,73 @@ def run():
         time.sleep(INTERVAL_SECONDS)
 
 
+# Persist runner/scanner output because Task Scheduler does not retain a
+# useful console transcript for a long-running background process.
+import sys
+from contextlib import redirect_stderr, redirect_stdout
+from pathlib import Path
+
+LOG_PATH = Path(__file__).resolve().parents[3] / "logs" / "intraday_runner.log"
+
+
+class _TimestampedTee:
+    def __init__(self, *streams):
+        self.streams = streams
+        self.buffer = ""
+
+    def write(self, value):
+        if not isinstance(value, str):
+            value = str(value)
+        self.buffer += value
+        while "\n" in self.buffer:
+            line, self.buffer = self.buffer.split("\n", 1)
+            self._write_line(line)
+        return len(value)
+
+    def _write_line(self, line):
+        timestamp = datetime.now(JAKARTA_TZ).isoformat(timespec="seconds")
+        rendered = f"{timestamp} WIB | {line}\n"
+        for stream in self.streams:
+            stream.write(rendered)
+            stream.flush()
+
+    def flush(self):
+        for stream in self.streams:
+            stream.flush()
+
+    def flush_partial(self):
+        if self.buffer:
+            self._write_line(self.buffer)
+            self.buffer = ""
+
+
+def main():
+    try:
+        LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with LOG_PATH.open("a", encoding="utf-8", buffering=1) as log_file:
+            stdout = _TimestampedTee(*([sys.__stdout__] if sys.__stdout__ else []), log_file)
+            stderr = _TimestampedTee(*([sys.__stderr__] if sys.__stderr__ else []), log_file)
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                print("INTRADAY RUNNER PROCESS STARTED")
+                try:
+                    run()
+                except Exception as error:
+                    print(
+                        f"FATAL: {type(error).__name__}: {error}",
+                        file=sys.stderr,
+                    )
+                    raise
+                finally:
+                    stdout.flush_partial()
+                    stderr.flush_partial()
+    except OSError as error:
+        print(
+            f"WARNING: intraday log unavailable ({error}); "
+            "continuing without file logging.",
+            file=sys.stderr,
+        )
+        run()
+
+
 if __name__ == "__main__":
-    run()
+    main()
