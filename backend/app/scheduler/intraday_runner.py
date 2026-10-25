@@ -218,22 +218,7 @@ class _TimestampedTee:
 def main():
     try:
         LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with LOG_PATH.open("a", encoding="utf-8", buffering=1) as log_file:
-            stdout = _TimestampedTee(*([sys.__stdout__] if sys.__stdout__ else []), log_file)
-            stderr = _TimestampedTee(*([sys.__stderr__] if sys.__stderr__ else []), log_file)
-            with redirect_stdout(stdout), redirect_stderr(stderr):
-                print("INTRADAY RUNNER PROCESS STARTED")
-                try:
-                    run()
-                except Exception as error:
-                    print(
-                        f"FATAL: {type(error).__name__}: {error}",
-                        file=sys.stderr,
-                    )
-                    raise
-                finally:
-                    stdout.flush_partial()
-                    stderr.flush_partial()
+        log_file = LOG_PATH.open("a", encoding="utf-8", buffering=1)
     except OSError as error:
         print(
             f"WARNING: intraday log unavailable ({error}); "
@@ -241,7 +226,26 @@ def main():
             file=sys.stderr,
         )
         run()
+        return
 
+    with log_file:
+        # Do not write to sys.__stdout__/sys.__stderr__: those handles can be
+        # invalid under Windows Task Scheduler and pytest capture.
+        stdout = _TimestampedTee(log_file)
+        stderr = _TimestampedTee(log_file)
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            print("INTRADAY RUNNER PROCESS STARTED")
+            try:
+                run()
+            except Exception as error:
+                print(
+                    f"FATAL: {type(error).__name__}: {error}",
+                    file=sys.stderr,
+                )
+                raise
+            finally:
+                stdout.flush_partial()
+                stderr.flush_partial()
 
 if __name__ == "__main__":
     main()
