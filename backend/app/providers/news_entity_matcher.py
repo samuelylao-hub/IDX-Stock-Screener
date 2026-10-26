@@ -23,8 +23,8 @@ MARKET_TERMS = {
 
 def normalize_entity_text(value: str) -> str:
     value = value.casefold()
-    value = re.sub(r"[^a-z0-9\\s]", " ", value)
-    value = re.sub(r"\\s+", " ", value)
+    value = re.sub(r"[^a-z0-9\s]", " ", value)
+    value = re.sub(r"\s+", " ", value)
     return value.strip()
 
 
