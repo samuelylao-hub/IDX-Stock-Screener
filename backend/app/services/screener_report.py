@@ -9,7 +9,7 @@ def format_screener_report(results, trade_date, news_by_symbol=None, alerts=None
 
     if not results:
         lines.append("Tidak ada hasil screening untuk tanggal ini.")
-        return "\\n".join(lines)
+        return "\n".join(lines)
 
     for i, result in enumerate(results, 1):
         lines.extend([
@@ -41,4 +41,4 @@ def format_screener_report(results, trade_date, news_by_symbol=None, alerts=None
             lines.append(f"Alert       : {alert.level} / {alert.state}")
         lines.append("")
 
-    return "\\n".join(lines)
+    return "\n".join(lines)
