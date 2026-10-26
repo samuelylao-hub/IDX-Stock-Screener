@@ -26,7 +26,7 @@ def write_log(message: str) -> None:
     try:
         LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
         with LOG_PATH.open("a", encoding="utf-8") as log_file:
-            log_file.write(line + "\\n")
+            log_file.write(line + "\n")
     except OSError as error:
         print(f"WARNING: gagal menulis log berita: {error}")
     print(line)
