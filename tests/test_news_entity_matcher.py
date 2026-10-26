@@ -4,7 +4,7 @@ from backend.app.providers.news_entity_matcher import (
 )
 
 
-def test_matches_symbol():
+def test_matches_symbol_with_market_context():
     assert matches_stock_entity(
         "BBCA mencatat kenaikan laba",
         "BBCA",
@@ -12,7 +12,7 @@ def test_matches_symbol():
     )
 
 
-def test_matches_company_name():
+def test_matches_company_name_with_market_context():
     assert matches_stock_entity(
         "Bank Central Asia mencatat kenaikan laba",
         "BBCA",
@@ -20,9 +20,25 @@ def test_matches_company_name():
     )
 
 
+def test_rejects_entity_mention_without_market_context():
+    assert not matches_stock_entity(
+        "BBCA hadir dalam acara hiburan",
+        "BBCA",
+        "Bank Central Asia Tbk",
+    )
+
+
+def test_rejects_unrelated_social_article_even_if_description_mentions_company():
+    assert not matches_stock_entity(
+        "Bahaya YouTube bagi anak-anak",
+        "BBCA",
+        "Bank Central Asia Tbk",
+    )
+
+
 def test_does_not_match_partial_symbol():
     assert not matches_stock_entity(
-        "ABCBBCAXYZ mencatat kenaikan",
+        "ABCBBCAXYZ mencatat kenaikan laba",
         "BBCA",
         "Bank Central Asia Tbk",
     )
@@ -33,10 +49,8 @@ def test_find_matching_symbols():
         (1, "BBCA", "Bank Central Asia Tbk"),
         (2, "BBRI", "Bank Rakyat Indonesia (Persero) Tbk"),
     ]
-
     result = find_matching_symbols(
         "Bank Central Asia mencatat kinerja positif",
         stocks,
     )
-
     assert result == ["BBCA"]
