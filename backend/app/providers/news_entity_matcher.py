@@ -35,8 +35,9 @@ def normalize_company_name(value: str) -> str:
 
 def has_market_relevance(text: str) -> bool:
     normalized = normalize_entity_text(text)
+    padded_text = f" {normalized} "
     return any(
-        normalize_entity_text(term) in normalized
+        f" {normalize_entity_text(term)} " in padded_text
         for term in MARKET_TERMS
     )
 
