@@ -17,8 +17,9 @@ def test_scheduler_skips_job_on_non_trading_day():
         patch.object(jobs, "run_market_data_update") as run_update,
     ):
         mocked_datetime.now.return_value = FIXED_NOW
-        jobs.run_market_data_update_if_trading_day()
+        result = jobs.run_market_data_update_if_trading_day()
 
+    assert result == "SKIPPED"
     mocked_datetime.now.assert_called_once_with(JAKARTA_TZ)
     calendar_check.assert_called_once_with(EXPECTED_DATE)
     run_update.assert_not_called()
@@ -31,8 +32,9 @@ def test_scheduler_runs_job_on_trading_day():
         patch.object(jobs, "run_market_data_update") as run_update,
     ):
         mocked_datetime.now.return_value = FIXED_NOW
-        jobs.run_market_data_update_if_trading_day()
+        result = jobs.run_market_data_update_if_trading_day()
 
+    assert result == "SUCCESS"
     mocked_datetime.now.assert_called_once_with(JAKARTA_TZ)
     calendar_check.assert_called_once_with(EXPECTED_DATE)
     run_update.assert_called_once_with()

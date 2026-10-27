@@ -56,15 +56,15 @@ def reserve_daily_index_alpha_symbols(
             used = cur.fetchone()[0]
             remaining = max(0, daily_limit - used)
 
+            count = min(limit, ENDPOINT_LIMITS[endpoint], remaining)
+            if count == 0:
+                return []
+
             cur.execute("""
                 INSERT INTO index_alpha_daily_batches (trade_date, endpoint)
                 VALUES (%s, %s)
                 ON CONFLICT DO NOTHING
             """, (trade_date, endpoint))
-
-            count = min(limit, ENDPOINT_LIMITS[endpoint], remaining)
-            if count == 0:
-                return []
 
             # Rotate symbols by date so the same first tickers are not
             # permanently favored. A reservation counts per ticker/endpoint.

@@ -1,5 +1,6 @@
 from datetime import datetime
 from pathlib import Path
+from contextlib import redirect_stdout, redirect_stderr
 from zoneinfo import ZoneInfo
 
 from backend.app.scheduler.jobs import run_market_data_update_if_trading_day
@@ -7,6 +8,7 @@ from backend.app.scheduler.jobs import run_market_data_update_if_trading_day
 
 JAKARTA_TZ = ZoneInfo("Asia/Jakarta")
 LOG_PATH = Path(__file__).resolve().parents[3] / "logs" / "daily_runner.log"
+OUTPUT_LOG_PATH = LOG_PATH.with_name("daily_runner_output.log")
 
 
 def _write_runner_log(message: str) -> None:
@@ -26,8 +28,17 @@ def _write_runner_log(message: str) -> None:
 def main():
     _write_runner_log("START")
     try:
-        run_market_data_update_if_trading_day()
-        _write_runner_log("RETURNED: market screening guard selesai")
+        with OUTPUT_LOG_PATH.open("a", encoding="utf-8", buffering=1) as output_log:
+            output_log.write("\n--- RUN START ---\n")
+            with redirect_stdout(output_log), redirect_stderr(output_log):
+                result = run_market_data_update_if_trading_day()
+        if result == "SKIPPED":
+            _write_runner_log("SKIPPED: bukan hari bursa")
+            return
+        if result != "SUCCESS":
+            raise RuntimeError(
+                f"Status guard tidak dikenal: {result!r}"
+            )
         _write_runner_log("SUCCESS")
     except Exception as error:
         _write_runner_log(f"FAILED: {type(error).__name__}: {error}")

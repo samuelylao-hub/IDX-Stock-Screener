@@ -13,12 +13,12 @@ def test_daily_runner_uses_trading_day_guard():
         ) as guarded_job,
         patch.object(daily_runner, "_write_runner_log") as write_log,
     ):
+        guarded_job.return_value = "SUCCESS"
         daily_runner.main()
 
     guarded_job.assert_called_once_with()
     messages = [call.args[0] for call in write_log.call_args_list]
     assert "START" in messages
-    assert "RETURNED: market screening guard selesai" in messages
     assert messages[-1] == "SUCCESS"
 
 

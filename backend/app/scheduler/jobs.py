@@ -1,5 +1,5 @@
-﻿import os
-from datetime import datetime
+import os
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
@@ -32,6 +32,39 @@ def _get_notification_service():
         return NotificationService([TelegramNotificationProvider(token, chat_id)])
     print("WARNING: Telegram nonaktif; TELEGRAM_BOT_TOKEN atau TELEGRAM_CHAT_ID belum tersedia.")
     return NotificationService()
+
+
+def _load_latest_news_by_symbol(symbols, trade_date):
+    """Ambil berita terbaru yang sudah tersimpan; tidak memanggil API berita."""
+    if not symbols:
+        return {}
+    start_date = trade_date - timedelta(days=3)
+    end_date = trade_date + timedelta(days=1)
+    query = """
+        SELECT DISTINCT ON (ne.symbol)
+            ne.symbol, ne.canonical_title, ne.first_published_at,
+            ne.validation_status, ne.evidence_strength,
+            ns.source_name, ns.url
+        FROM news_events ne
+        LEFT JOIN news_event_sources ns ON ns.news_event_id = ne.id
+        WHERE ne.symbol = ANY(%s)
+          AND ne.first_published_at >= %s
+          AND ne.first_published_at < %s
+        ORDER BY ne.symbol, ne.first_published_at DESC,
+                 ns.published_at DESC NULLS LAST
+    """
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(query, (list(symbols), start_date, end_date))
+            rows = cur.fetchall()
+    return {
+        row[0]: {
+            "title": row[1], "published_at": row[2],
+            "validation_status": row[3], "evidence_strength": row[4],
+            "source": row[5], "url": row[6],
+        }
+        for row in rows
+    }
 
 
 def run_market_data_update():
@@ -127,8 +160,13 @@ def run_market_data_update():
             symbols=[symbol for _, symbol in stocks],
             persist=True,
         )
-        report = format_screener_report(results, trade_date)
         alerts = AlertEngine().evaluate_all(results, trade_date)
+        news_by_symbol = _load_latest_news_by_symbol(
+            [result.symbol for result in results], trade_date
+        )
+        report = format_screener_report(
+            results, trade_date, news_by_symbol=news_by_symbol, alerts=alerts
+        )
 
         # Tentukan status job dan susun satu laporan final sebelum mengirimnya.
         if isinstance(price_summary, dict) and price_failed > 0:
@@ -170,17 +208,7 @@ def run_market_data_update():
                 f"{notification_error}"
             )
 
-        if alerts:
-            print(f"Signal alerts: {len(alerts)}")
-            try:
-                notification.send_alerts(alerts)
-            except Exception as notification_error:
-                print(
-                    "WARNING: screening selesai, tetapi alert Telegram gagal: "
-                    f"{notification_error}"
-                )
-        else:
-            print("Signal alerts: none")
+        print(f"Signal alerts included in closing report: {len(alerts)}")
 
         print("Market data update and screener finished.")
     except Exception as error:
@@ -220,6 +248,6 @@ def run_market_data_update():
 def run_market_data_update_if_trading_day():
     if not is_trading_day(datetime.now(ZoneInfo("Asia/Jakarta")).date()):
         print("Non-trading day. Market update skipped.")
-        return
+        return "SKIPPED"
     run_market_data_update()
-
+    return "SUCCESS"

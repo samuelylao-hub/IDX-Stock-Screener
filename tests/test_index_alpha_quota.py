@@ -1,4 +1,4 @@
-﻿from datetime import date
+from datetime import date
 from unittest.mock import MagicMock
 
 import pytest
@@ -16,9 +16,11 @@ class FakeCursor:
         self.used = used
         self.fetchone_calls = 0
         self.last_query = ""
+        self.queries = []
 
     def execute(self, query, params=None):
         self.last_query = " ".join(query.split())
+        self.queries.append(self.last_query)
 
     def fetchone(self):
         self.fetchone_calls += 1
@@ -98,6 +100,24 @@ def test_previously_reserved_endpoint_is_not_reserved_twice():
         3,
     )
     assert result == []
+
+
+def test_no_batch_is_recorded_when_daily_quota_is_exhausted():
+    cursor = FakeCursor(existing_batch=False, used=5)
+    result = reserve_daily_index_alpha_symbols(
+        factory_for(cursor),
+        [(1, "BBCA"), (2, "BBRI")],
+        date(2026, 10, 14),
+        "foreign_flow",
+        3,
+        daily_limit=5,
+    )
+
+    assert result == []
+    assert not any(
+        "INSERT INTO index_alpha_daily_batches" in query
+        for query in cursor.queries
+    )
 
 
 def test_reservation_respects_remaining_daily_quota():
