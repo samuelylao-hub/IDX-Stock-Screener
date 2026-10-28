@@ -35,6 +35,9 @@ def main():
         if result == "SKIPPED":
             _write_runner_log("SKIPPED: bukan hari bursa")
             return
+        if result == "PARTIAL":
+            _write_runner_log("PARTIAL: screening selesai, sebagian update harga gagal")
+            return
         if result != "SUCCESS":
             raise RuntimeError(
                 f"Status guard tidak dikenal: {result!r}"

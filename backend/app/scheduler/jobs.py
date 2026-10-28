@@ -211,6 +211,7 @@ def run_market_data_update():
         print(f"Signal alerts included in closing report: {len(alerts)}")
 
         print("Market data update and screener finished.")
+        return "PARTIAL" if isinstance(price_summary, dict) and price_failed > 0 else "SUCCESS"
     except Exception as error:
         error_message = str(error)
 
@@ -249,5 +250,5 @@ def run_market_data_update_if_trading_day():
     if not is_trading_day(datetime.now(ZoneInfo("Asia/Jakarta")).date()):
         print("Non-trading day. Market update skipped.")
         return "SKIPPED"
-    run_market_data_update()
-    return "SUCCESS"
+    result = run_market_data_update()
+    return result if result in ("PARTIAL", "SUCCESS") else "SUCCESS"

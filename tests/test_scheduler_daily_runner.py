@@ -36,3 +36,19 @@ def test_daily_runner_logs_and_reraises_failure():
 
     messages = [call.args[0] for call in write_log.call_args_list]
     assert any(message.startswith("FAILED: ValueError") for message in messages)
+
+def test_daily_runner_logs_partial_without_marking_success():
+    with (
+        patch.object(
+            daily_runner,
+            "run_market_data_update_if_trading_day",
+            return_value="PARTIAL",
+        ),
+        patch.object(daily_runner, "_write_runner_log") as write_log,
+    ):
+        daily_runner.main()
+
+    messages = [call.args[0] for call in write_log.call_args_list]
+    assert any(message.startswith("PARTIAL:") for message in messages)
+    assert "SUCCESS" not in messages
+    assert not any(message.startswith("FAILED:") for message in messages)

@@ -38,3 +38,15 @@ def test_scheduler_runs_job_on_trading_day():
     mocked_datetime.now.assert_called_once_with(JAKARTA_TZ)
     calendar_check.assert_called_once_with(EXPECTED_DATE)
     run_update.assert_called_once_with()
+
+
+def test_scheduler_propagates_partial_status():
+    with (
+        patch.object(jobs, "datetime") as mocked_datetime,
+        patch.object(jobs, "is_trading_day", return_value=True),
+        patch.object(jobs, "run_market_data_update", return_value="PARTIAL"),
+    ):
+        mocked_datetime.now.return_value = FIXED_NOW
+        result = jobs.run_market_data_update_if_trading_day()
+
+    assert result == "PARTIAL"
