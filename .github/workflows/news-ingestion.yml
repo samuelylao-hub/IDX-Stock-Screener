@@ -1,0 +1,65 @@
+name: IDX News Ingestion
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 19:10 WIB, Monday-Friday (GitHub cron uses UTC)
+    - cron: "10 12 * * 1-5"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: idx-news-ingestion
+  cancel-in-progress: false
+
+jobs:
+  news-ingestion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONUNBUFFERED: "1"
+      DATABASE_HOST: ${{ secrets.DATABASE_HOST }}
+      DATABASE_PORT: ${{ secrets.DATABASE_PORT || '5432' }}
+      DATABASE_NAME: ${{ secrets.DATABASE_NAME }}
+      DATABASE_USER: ${{ secrets.DATABASE_USER }}
+      DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+      INDEX_ALPHA_API_KEY: ${{ secrets.INDEX_ALPHA_API_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Validate required secrets before running
+        shell: bash
+        run: |
+          missing=0
+          for key in DATABASE_HOST DATABASE_NAME DATABASE_USER DATABASE_PASSWORD INDEX_ALPHA_API_KEY TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID; do
+            if [[ -z "${!key}" ]]; then
+              echo "::error::GitHub Actions secret ${key} belum diatur. Job dihentikan sebelum mengakses API."
+              missing=1
+            fi
+          done
+          if [[ "$missing" -ne 0 ]]; then
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+
+      - name: Run news ingestion
+        run: python -m backend.app.scheduler.news_runner
+
+      - name: Notify Telegram if workflow fails
+        if: failure() && env.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_CHAT_ID != ''
+        shell: bash
+        run: |
+          curl --silent --show-error --fail             --request POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage"             --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}"             --data-urlencode "text=IDX Stock Screener: GitHub Actions news workflow GAGAL. Periksa tab Actions di GitHub untuk detail."
