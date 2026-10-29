@@ -22,6 +22,7 @@ from backend.app.scheduler.job_logger import (
 from backend.app.services.notification_service import NotificationService
 from backend.app.services.screener_report import format_screener_report
 from backend.app.services.screener_service import ScreenerService
+from backend.app.scheduler.flow_candidates import select_flow_candidate_stocks
 from backend.app.focused_universe import FOCUSED_UNIVERSE
 
 
@@ -134,11 +135,27 @@ def run_market_data_update():
                 stocks = cur.fetchall()
         if not stocks:
             raise RuntimeError("Tidak ada saham aktif untuk market screening.")
+        # Rank from fresh prices before spending the limited flow quota.
+        preliminary_results = ScreenerService().screen_market(
+            trade_date,
+            symbols=[symbol for _, symbol in stocks],
+            persist=False,
+        )
+        flow_candidates = select_flow_candidate_stocks(
+            stocks, preliminary_results, limit=5
+        )
+        print(
+            "Flow quota candidates: "
+            + (", ".join(symbol for _, symbol in flow_candidates) or "none")
+        )
+
         foreign_stocks = reserve_daily_index_alpha_symbols(
-            get_connection, stocks, trade_date, "foreign_flow", limit=3
+            get_connection, flow_candidates, trade_date, "foreign_flow",
+            limit=3, rotate_symbols=False,
         )
         broker_stocks = reserve_daily_index_alpha_symbols(
-            get_connection, stocks, trade_date, "broker_summary", limit=2
+            get_connection, flow_candidates, trade_date, "broker_summary",
+            limit=2, rotate_symbols=False,
         )
 
         foreign_saved = (
