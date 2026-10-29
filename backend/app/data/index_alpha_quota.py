@@ -15,6 +15,7 @@ def reserve_daily_index_alpha_symbols(
     endpoint: str,
     limit: int,
     daily_limit: int = DAILY_LIMIT,
+    rotate_symbols: bool = True,
 ):
     """Reserve quota units persistently before calling Index Alpha."""
     if endpoint not in ENDPOINT_LIMITS:
@@ -66,11 +67,14 @@ def reserve_daily_index_alpha_symbols(
                 ON CONFLICT DO NOTHING
             """, (trade_date, endpoint))
 
-            # Rotate symbols by date so the same first tickers are not
-            # permanently favored. A reservation counts per ticker/endpoint.
-            offset = trade_date.toordinal() % len(stocks)
-            rotated = stocks[offset:] + stocks[:offset]
-            selected = rotated[:count]
+            # Preserve ranking order when candidates were selected by the
+            # screener; keep date rotation as the default for general callers.
+            if rotate_symbols:
+                offset = trade_date.toordinal() % len(stocks)
+                ordered_stocks = stocks[offset:] + stocks[:offset]
+            else:
+                ordered_stocks = stocks
+            selected = ordered_stocks[:count]
 
             for _, symbol in selected:
                 cur.execute("""
