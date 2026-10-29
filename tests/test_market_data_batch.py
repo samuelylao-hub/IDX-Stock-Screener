@@ -7,7 +7,7 @@ FIELDS = ["Open", "High", "Low", "Close", "Adj Close", "Volume"]
 
 
 def _frame(columns):
-    values = [[1, 2, 0.5, 1.5, 1.5, 100] for _ in range(2)]
+    values = [[(i % len(FIELDS)) + 1 for i in range(len(columns))] for _ in range(2)]
     return pd.DataFrame(values, index=pd.date_range("2026-10-20", periods=2), columns=columns)
 
 
