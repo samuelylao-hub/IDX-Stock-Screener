@@ -24,6 +24,7 @@ jobs:
       DATABASE_NAME: ${{ secrets.DATABASE_NAME }}
       DATABASE_USER: ${{ secrets.DATABASE_USER }}
       DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+      DATABASE_SSLMODE: ${{ secrets.DATABASE_SSLMODE || 'require' }}
       INDEX_ALPHA_API_KEY: ${{ secrets.INDEX_ALPHA_API_KEY }}
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
