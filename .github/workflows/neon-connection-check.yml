@@ -1,0 +1,97 @@
+name: Neon Connection Check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: neon-connection-check
+  cancel-in-progress: false
+
+jobs:
+  verify-neon:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      DATABASE_HOST: ${{ secrets.DATABASE_HOST }}
+      DATABASE_PORT: ${{ secrets.DATABASE_PORT || '5432' }}
+      DATABASE_NAME: ${{ secrets.DATABASE_NAME }}
+      DATABASE_USER: ${{ secrets.DATABASE_USER }}
+      DATABASE_PASSWORD: ${{ secrets.DATABASE_PASSWORD }}
+      DATABASE_SSLMODE: ${{ secrets.DATABASE_SSLMODE || 'require' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Validate database secrets
+        shell: bash
+        run: |
+          missing=0
+          for key in DATABASE_HOST DATABASE_NAME DATABASE_USER DATABASE_PASSWORD; do
+            if [[ -z "${!key}" ]]; then
+              echo "::error::Repository secret ${key} belum diatur."
+              missing=1
+            fi
+          done
+          if [[ "${missing}" -ne 0 ]]; then
+            exit 1
+          fi
+          if [[ "${DATABASE_HOST}" != *.neon.tech ]]; then
+            echo "::error::DATABASE_HOST bukan hostname Neon (*.neon.tech)."
+            exit 1
+          fi
+
+      - name: Install minimal database dependencies
+        run: python -m pip install --disable-pip-version-check "psycopg[binary]" python-dotenv
+
+      - name: Test application connection and SSL
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          import sys
+
+          from backend.app.database import get_connection
+
+          try:
+              with get_connection() as conn:
+                  with conn.cursor() as cur:
+                      cur.execute(
+                          """
+                          SELECT
+                              current_database(),
+                              current_user,
+                              (
+                                  SELECT ssl
+                                  FROM pg_stat_ssl
+                                  WHERE pid = pg_backend_pid()
+                              )
+                          """
+                      )
+                      database_name, database_user, ssl_enabled = cur.fetchone()
+
+              expected_database = os.environ["DATABASE_NAME"]
+              if database_name != expected_database:
+                  raise RuntimeError(
+                      f"Database mismatch: expected {expected_database!r}, "
+                      f"connected to {database_name!r}"
+                  )
+              if ssl_enabled is not True:
+                  raise RuntimeError("Koneksi berhasil tetapi SSL tidak aktif.")
+
+              print("NEON_CONNECTION: PASS")
+              print(f"Database: {database_name}")
+              print(f"Database user: {database_user}")
+              print(f"SSL aktif: {ssl_enabled}")
+          except Exception as exc:
+              print(f"NEON_CONNECTION: FAIL ({type(exc).__name__}: {exc})", file=sys.stderr)
+              raise
+          PY
